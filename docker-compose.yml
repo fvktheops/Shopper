@@ -1,0 +1,55 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: luvora
+      POSTGRES_PASSWORD: luvora
+      POSTGRES_DB: luvora
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - luvora_net
+
+  redis:
+    image: redis:6
+    restart: unless-stopped
+    networks:
+      - luvora_net
+
+  backend:
+    build: ./backend
+    volumes:
+      - ./backend:/usr/src/app
+      - ./data:/data
+    environment:
+      PORT: 4000
+      REPO_ROOT: /data/repos
+      NODE_ENV: development
+    ports:
+      - '4000:4000'
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - luvora_net
+
+  frontend:
+    build: ./frontend
+    volumes:
+      - ./frontend:/usr/src/app
+    ports:
+      - '5173:5173'
+    environment:
+      VITE_API_BASE: http://localhost:4000
+    networks:
+      - luvora_net
+
+volumes:
+  postgres_data:
+
+networks:
+  luvora_net:
+    driver: bridge
