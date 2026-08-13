@@ -1,0 +1,27 @@
+<header style="backdrop-filter:blur(6px);background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));border-bottom:1px solid rgba(255,255,255,0.03);padding:10px 16px">
+  <div style="max-width:1100px;margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px">
+    <a class="brand" href="/">LUVORA</a>
+
+    <nav id="main-nav" class="nav" style="gap:14px;align-items:center">
+      <a class="nav-link" href="/explore">Explore</a>
+      <a class="nav-link" href="/features">Features</a>
+      <a class="nav-link" href="/docs">Docs</a>
+      <a class="nav-link" href="/login">Sign in</a>
+      <a class="cta" href="/signup" style="padding:8px 12px">Get started</a>
+    </nav>
+
+    <!-- Mobile toggle -->
+    <button id="mobile-nav-toggle" aria-label="Toggle navigation" style="display:none;background:transparent;border:1px solid rgba(255,255,255,0.04);padding:8px;border-radius:8px">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 7h18M3 12h18M3 17h18" stroke="#e6eef8" stroke-width="1.6" stroke-linecap="round"/></svg>
+    </button>
+  </div>
+
+  <script>
+    // Show mobile toggle on small screens
+    (function(){
+      const btn = document.getElementById('mobile-nav-toggle');
+      if(window.innerWidth < 760){ btn.style.display='block'; }
+      window.addEventListener('resize', ()=>{ btn.style.display = window.innerWidth < 760 ? 'block' : 'none'; });
+    })();
+  </script>
+</header>

@@ -6,94 +6,147 @@
   <title>LUVORA — Code Collaboration Platform</title>
   <meta name="description" content="LUVORA — A lightweight GitHub-like platform for code hosting, issues, and collaboration." />
   <style>
-    :root{--bg:#0b1220;--card:#0f1724;--accent:#ff4d72;--muted:#98a0b3;--glass:rgba(255,255,255,0.04)}
+    :root{
+      --bg:#0b1220;
+      --card:#0f1724;
+      --accent:#ff4d72;
+      --muted:#98a0b3;
+      --glass:rgba(255,255,255,0.04);
+      --maxw:1100px;
+      --gap:24px;
+    }
     *{box-sizing:border-box}
-    body{margin:0;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial;color:#e6eef8;background:linear-gradient(180deg,#061029 0%,#081226 60%);min-height:100vh}
-    header{display:flex;justify-content:space-between;align-items:center;padding:20px 36px}
-    .brand{font-weight:800;font-size:20px;color:white;text-decoration:none}
-    nav{display:flex;gap:14px;align-items:center}
-    .nav-link{color:var(--muted);text-decoration:none;font-size:14px}
+    html,body{height:100%}
+    body{margin:0;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial;color:#e6eef8;background:linear-gradient(180deg,#061029 0%,#081226 60%);-webkit-font-smoothing:antialiased}
+
+    /* Header placeholder replaced by header.html */
+    #site-header{position:sticky;top:0;z-index:40}
+
+    .container{max-width:var(--maxw);margin:0 auto;padding:20px}
+
+    .hero{margin:28px auto;padding:22px;background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));border-radius:12px;border:1px solid rgba(255,255,255,0.03);display:grid;grid-template-columns:1fr 360px;gap:var(--gap);align-items:start}
+    .hero-title{font-size:36px;margin:0 0 12px 0;line-height:1.02}
+    .hero-desc{color:var(--muted);margin-bottom:18px;max-width:60ch}
+    .actions{display:flex;gap:12px}
     .cta{background:var(--accent);color:white;padding:10px 14px;border-radius:8px;text-decoration:none;font-weight:700}
 
-    .hero{max-width:1100px;margin:40px auto;padding:28px;background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));border-radius:12px;border:1px solid rgba(255,255,255,0.03);display:grid;grid-template-columns:1fr 360px;gap:24px}
-    .hero-title{font-size:36px;margin:0 0 12px 0}
-    .hero-desc{color:var(--muted);margin-bottom:18px}
-    .actions{display:flex;gap:12px}
     .card{background:var(--card);padding:14px;border-radius:10px;border:1px solid var(--glass)}
-
-    .features{display:flex;gap:14px;flex-wrap:wrap;margin-top:22px}
+    .features{display:flex;gap:14px;flex-wrap:wrap;margin-top:16px}
     .feature{flex:1;min-width:200px;background:rgba(255,255,255,0.02);padding:12px;border-radius:8px}
-    .footer{max-width:1100px;margin:36px auto;color:var(--muted);padding:18px 36px}
 
-    a{color:inherit}
-    code{background:rgba(255,255,255,0.03);padding:4px 6px;border-radius:6px;font-size:13px}
+    /* Footer placeholder */
+    #site-footer{margin-top:28px}
 
-    @media(max-width:900px){.hero{grid-template-columns:1fr;}.hero-title{font-size:28px}}
+    /* Responsive */
+    @media(max-width:1000px){
+      .hero{grid-template-columns:1fr 320px}
+      .hero-title{font-size:30px}
+    }
+    @media(max-width:760px){
+      .hero{grid-template-columns:1fr;gap:14px;padding:18px}
+      .hero-title{font-size:24px}
+      .hero-desc{max-width:none}
+      .card{padding:12px}
+    }
+
+    /* small helpers for loaded header/footer content */
+    .nav{display:flex;gap:14px;align-items:center}
+    .nav-link{color:var(--muted);text-decoration:none;font-size:14px}
+    .brand{font-weight:800;font-size:20px;color:white;text-decoration:none}
+
+    /* Mobile nav toggle handled by header.js */
   </style>
 </head>
 <body>
-  <header>
-    <a class="brand" href="/">LUVORA</a>
-    <nav>
-      <a class="nav-link" href="/explore">Explore</a>
-      <a class="nav-link" href="/features">Features</a>
-      <a class="nav-link" href="/docs">Docs</a>
-      <a class="nav-link" href="/login">Sign in</a>
-      <a class="cta" href="/signup">Get started</a>
-    </nav>
-  </header>
+  <div id="site-header">Loading header...</div>
 
-  <main class="hero" role="main">
-    <section>
-      <h1 class="hero-title">A modern platform for code collaboration — LUVORA</h1>
-      <p class="hero-desc">Create repositories, open issues, review code, and collaborate in real time. LUVORA is a lightweight GitHub-like platform you can self-host and extend.</p>
+  <main class="container">
+    <section class="hero" role="main">
+      <div>
+        <h1 class="hero-title">A modern platform for code collaboration — LUVORA</h1>
+        <p class="hero-desc">Create repositories, open issues, review code, and collaborate in real time. LUVORA is a lightweight GitHub-like platform you can self-host and extend.</p>
 
-      <div class="actions">
-        <a class="cta" href="/app">Open LUVORA</a>
-        <a class="nav-link" href="https://github.com/fvktheops/Shopper" target="_blank">View this project on GitHub</a>
+        <div class="actions">
+          <a class="cta" href="/app">Open LUVORA</a>
+          <a class="nav-link" href="https://github.com/fvktheops/Shopper" target="_blank">View project on GitHub</a>
+        </div>
+
+        <div class="features">
+          <div class="feature">
+            <strong>Repositories</strong>
+            <div style="color:var(--muted);margin-top:8px">Create and host Git repositories with full commit history and a browser-based code view.</div>
+          </div>
+          <div class="feature">
+            <strong>Issues & PRs</strong>
+            <div style="color:var(--muted);margin-top:8px">Track bugs, requests, and collaborate on pull requests with inline comments and reviews.</div>
+          </div>
+          <div class="feature">
+            <strong>Real-time</strong>
+            <div style="color:var(--muted);margin-top:8px">Live notifications and comment streaming using WebSockets (Socket.io + Redis adapter).</div>
+          </div>
+          <div class="feature">
+            <strong>Extensible</strong>
+            <div style="color:var(--muted);margin-top:8px">Add CI, webhooks, and integrations. Designed for self-hosting and cloud deployment behind Cloudflare.</div>
+          </div>
+        </div>
       </div>
 
-      <div class="features">
-        <div class="feature">
-          <strong>Repositories</strong>
-          <div style="color:var(--muted);margin-top:8px">Create and host Git repositories (HTTP & SSH support planned). Full commit history and browser-based code view.</div>
+      <aside class="card">
+        <h3 style="margin-top:0">Quick start</h3>
+        <ol style="color:var(--muted);padding-left:18px">
+          <li>Sign up and create an account</li>
+          <li>Create your first repository</li>
+          <li>Clone using the provided clone URL</li>
+          <li>Open issues and collaborate</li>
+        </ol>
+
+        <div style="margin-top:12px">
+          <div style="font-size:13px;color:var(--muted)">Run locally</div>
+          <code style="display:block;margin-top:8px">docker compose up --build</code>
         </div>
-        <div class="feature">
-          <strong>Issues & PRs</strong>
-          <div style="color:var(--muted);margin-top:8px">Track bugs, feature requests, and collaborate on pull requests with inline comments and reviews.</div>
-        </div>
-        <div class="feature">
-          <strong>Real-time</strong>
-          <div style="color:var(--muted);margin-top:8px">Live notifications and comment streaming using WebSockets (Socket.io + Redis adapter).</div>
-        </div>
-        <div class="feature">
-          <strong>Extensible</strong>
-          <div style="color:var(--muted);margin-top:8px">Add CI, webhooks, and integrations. Designed for self-hosting and cloud deployment behind Cloudflare.</div>
-        </div>
-      </div>
+      </aside>
     </section>
-
-    <aside class="card">
-      <h3 style="margin-top:0">Quick start</h3>
-      <ol style="color:var(--muted);padding-left:18px">
-        <li>Sign up and create an account</li>
-        <li>Create your first repository</li>
-        <li>Clone using the provided clone URL</li>
-        <li>Open issues and collaborate</li>
-      </ol>
-
-      <div style="margin-top:12px">
-        <div style="font-size:13px;color:var(--muted)">Run locally</div>
-        <code style="display:block;margin-top:8px">docker compose up --build</code>
-      </div>
-    </aside>
   </main>
 
-  <footer class="footer">
-    <div style="max-width:1100px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;gap:12px">
-      <div>© <strong>LUVORA</strong> — Built from the Shopper scaffold.</div>
-      <div style="color:var(--muted)">Docs • Support • Privacy</div>
-    </div>
-  </footer>
+  <div id="site-footer">Loading footer...</div>
+
+  <script>
+    // Load header and footer HTML fragments and wire up mobile navigation
+    async function loadFragment(selector, url){
+      try{
+        const res = await fetch(url);
+        if(!res.ok) throw new Error('Failed to load');
+        const html = await res.text();
+        document.querySelector(selector).innerHTML = html;
+      }catch(e){
+        console.error(e);
+      }
+    }
+
+    // Load header and footer
+    loadFragment('#site-header', '/header.html').then(()=>{
+      // after header loads, wire mobile toggle if present
+      const btn = document.querySelector('#mobile-nav-toggle');
+      const nav = document.querySelector('#main-nav');
+      if(btn && nav){
+        btn.addEventListener('click', ()=>{
+          const open = nav.getAttribute('data-open') === 'true';
+          nav.setAttribute('data-open', open ? 'false' : 'true');
+          nav.style.display = open ? 'none' : 'flex';
+        });
+        // start hidden on small screens
+        if(window.innerWidth < 760){ nav.style.display = 'none'; nav.setAttribute('data-open','false'); }
+      }
+    });
+    loadFragment('#site-footer', '/footer.html');
+
+    // Responsive tweak: close mobile nav on resize
+    window.addEventListener('resize', ()=>{
+      const nav = document.querySelector('#main-nav');
+      if(!nav) return;
+      if(window.innerWidth >= 760){ nav.style.display = 'flex'; nav.setAttribute('data-open','true'); }
+      else if(nav.getAttribute('data-open') !== 'true'){ nav.style.display = 'none'; }
+    });
+  </script>
 </body>
 </html>
