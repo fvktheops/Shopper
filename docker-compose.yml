@@ -27,6 +27,8 @@ services:
     environment:
       PORT: 4000
       REPO_ROOT: /data/repos
+      DATABASE_URL: postgres://luvora:luvora@postgres:5432/luvora
+      JWT_SECRET: change_this_secret
       NODE_ENV: development
     ports:
       - '4000:4000'
