@@ -1,6 +1,4 @@
-// ML panel (vanilla JS) - mount with mountMlPanel(container)
-// This is a duplicate copy placed under static/ so the SPA can serve it from /static/js/
-
+// ML panel updated to listen for WebSocket events at /ws
 function mountMlPanel(root){
   if (!root) return;
   root.innerHTML = '';
@@ -12,8 +10,20 @@ function mountMlPanel(root){
   const seedBtn = document.createElement('button'); seedBtn.textContent='Seed current repo'; seedBtn.style.marginLeft='8px';
   actions.appendChild(btn); actions.appendChild(seedBtn);
   const out = document.createElement('div'); out.style.marginTop='10px';
-  box.appendChild(h); box.appendChild(input); box.appendChild(actions); box.appendChild(out);
+  const eventsBox = document.createElement('div'); eventsBox.style.marginTop='10px'; eventsBox.style.fontSize='0.9rem'; eventsBox.className='muted-small';
+  box.appendChild(h); box.appendChild(input); box.appendChild(actions); box.appendChild(out); box.appendChild(eventsBox);
   root.appendChild(box);
+
+  let ws;
+  function initWS(){
+    try{
+      ws = new WebSocket((location.protocol==='https:'?'wss://':'ws://') + location.host + '/ws');
+      ws.onopen = ()=>{ eventsBox.innerHTML += '<div>WS connected</div>' };
+      ws.onmessage = (ev)=>{ try{ const d = JSON.parse(ev.data); eventsBox.innerHTML += `<div>${d.type || 'event'}: ${d.job_id || ''} ${d.added?('added:'+d.added):''}</div>` }catch(e){ eventsBox.innerHTML += `<div>${ev.data}</div>` } };
+      ws.onclose = ()=>{ eventsBox.innerHTML += '<div>WS closed; retry in 3s</div>'; setTimeout(initWS,3000); };
+    }catch(e){ eventsBox.innerHTML += '<div>WS failed</div>'; }
+  }
+  initWS();
 
   btn.addEventListener('click', async ()=>{
     const q = input.value.trim(); if (!q) return alert('Enter a query or code snippet');

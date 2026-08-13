@@ -13,6 +13,7 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379/0
       - ML_DATA_DIR=/data
+      - SENTENCE_MODEL=all-MiniLM-L6-v2
     ports:
       - "8001:8000" # Exposed for local test: http://localhost:8001
     depends_on:
@@ -26,21 +27,11 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379/0
       - ML_DATA_DIR=/data
+      - SENTENCE_MODEL=all-MiniLM-L6-v2
     depends_on:
       - redis
     volumes:
       - ml-data:/data
-
-  socket-proxy:
-    build: ./socket-proxy
-    restart: unless-stopped
-    environment:
-      - REDIS_URL=redis://redis:6379/0
-      - SOCKET_PORT=4002
-    ports:
-      - "4002:4002"
-    depends_on:
-      - redis
 
 volumes:
   redis-data:

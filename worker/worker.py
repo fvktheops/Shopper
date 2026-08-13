@@ -1,6 +1,6 @@
 """
 Worker that consumes jobs from Redis list 'ml:jobs' and computes embeddings
-It loads the same sentence-transformers model as the ml-service and updates the on-disk index.
+Now updates FAISS index (if available) or NPZ fallback. Also computes centroid (repo-level) as a simple learned pattern and saves it.
 """
 import os
 import time
@@ -11,40 +11,74 @@ from sentence_transformers import SentenceTransformer
 
 REDIS_URL = os.environ.get('REDIS_URL','redis://redis:6379/0')
 DATA_DIR = os.environ.get('ML_DATA_DIR','/data')
-INDEX_PATH = os.path.join(DATA_DIR,'index.npz')
+NPZ_PATH = os.path.join(DATA_DIR,'index.npz')
+FAISS_PATH = os.path.join(DATA_DIR,'faiss_index.bin')
+META_PATH = os.path.join(DATA_DIR,'faiss_meta.json')
+CENTROID_PATH = os.path.join(DATA_DIR,'centroid.npy')
 MODEL_NAME = os.environ.get('SENTENCE_MODEL','all-MiniLM-L6-v2')
 
 r = redis.from_url(REDIS_URL, decode_responses=True)
 model = SentenceTransformer(MODEL_NAME)
 
+try:
+    import faiss
+    HAS_FAISS = True
+except Exception as e:
+    HAS_FAISS = False
+
 # helper to load and save index
-def load_index():
-    if not os.path.exists(INDEX_PATH):
+
+def load_npz():
+    if not os.path.exists(NPZ_PATH):
         return None, []
     try:
-        data = np.load(INDEX_PATH, allow_pickle=True)
-        if 'embeddings' in data:
-            embs = data['embeddings']
-            meta_raw = data['meta'] if 'meta' in data else []
-            meta = [json.loads(x) for x in meta_raw.tolist()] if len(meta_raw)>0 else []
-            return embs, meta
+        data = np.load(NPZ_PATH, allow_pickle=True)
+        embs = data['embeddings'] if 'embeddings' in data else None
+        meta_raw = data['meta'] if 'meta' in data else np.array([])
+        meta = [json.loads(x) for x in meta_raw.tolist()] if len(meta_raw)>0 else []
+        return embs, meta
     except Exception as e:
-        print('load_index error', e)
+        print('load_npz error', e)
     return None, []
 
-def save_index(embs, meta):
+
+def save_npz(embs, meta):
     os.makedirs(DATA_DIR, exist_ok=True)
-    np.savez_compressed(INDEX_PATH, embeddings=embs, meta=np.array([json.dumps(m) for m in meta], dtype=object))
+    np.savez_compressed(NPZ_PATH, embeddings=embs, meta=np.array([json.dumps(m) for m in meta], dtype=object))
+
+
+def load_faiss():
+    if not HAS_FAISS or not os.path.exists(FAISS_PATH):
+        return None, []
+    try:
+        idx = faiss.read_index(FAISS_PATH)
+        with open(META_PATH,'r') as f:
+            meta = json.load(f)
+        return idx, meta
+    except Exception as e:
+        print('load_faiss error', e)
+    return None, []
+
+
+def save_faiss(index, meta):
+    try:
+        faiss.write_index(index, FAISS_PATH)
+        with open(META_PATH,'w') as f:
+            json.dump(meta, f)
+        return True
+    except Exception as e:
+        print('save_faiss error', e)
+        return False
+
 
 print('Worker started, waiting for jobs...')
 while True:
     try:
-        job_id = r.brpop('ml:jobs', timeout=5)
-        if not job_id:
+        job = r.brpop('ml:jobs', timeout=5)
+        if not job:
             time.sleep(0.5)
             continue
-        # brpop returns tuple (key, value)
-        job_id = job_id[1]
+        job_id = job[1]
         print('Got job', job_id)
         items_raw = r.get(f'ml:job:{job_id}:items')
         if not items_raw:
@@ -54,15 +88,57 @@ while True:
         items = json.loads(items_raw)
         texts = [it['text'] for it in items]
         embs = model.encode(texts, convert_to_numpy=True, show_progress_bar=False)
-        # load existing index
-        old_embs, meta = load_index()
-        if old_embs is None:
-            new_embs = embs
-            new_meta = [ {'path':it['path']} for it in items ]
+        # normalize embeddings for FAISS (IP)
+        norms = np.linalg.norm(embs, axis=1, keepdims=True)
+        emb_norm = embs / np.maximum(norms, 1e-12)
+
+        if HAS_FAISS:
+            idx, meta = load_faiss()
+            if idx is None:
+                d = emb_norm.shape[1]
+                idx = faiss.IndexFlatIP(d)
+                idx.add(emb_norm.astype('float32'))
+                meta = [ {'path':it['path']} for it in items ]
+            else:
+                # append
+                idx.add(emb_norm.astype('float32'))
+                meta.extend([ {'path':it['path']} for it in items ])
+            save_faiss(idx, meta)
         else:
-            new_embs = np.vstack([old_embs, embs])
-            new_meta = meta + [ {'path':it['path']} for it in items ]
-        save_index(new_embs, new_meta)
+            existing, meta = load_npz()
+            if existing is None:
+                new_embs = embs
+                meta = [ {'path':it['path']} for it in items ]
+            else:
+                new_embs = np.vstack([existing, embs])
+                meta.extend([ {'path':it['path']} for it in items ])
+            save_npz(new_embs, meta)
+
+        # compute centroid (simple learned pattern)
+        try:
+            # load all embeddings (from FAISS or NPZ)
+            if HAS_FAISS and os.path.exists(FAISS_PATH):
+                idx, meta = load_faiss()
+                # retrieve vectors by searching for all (hack: cannot read raw vectors easily) - instead recompute from NPZ if present
+                if os.path.exists(NPZ_PATH):
+                    data = np.load(NPZ_PATH, allow_pickle=True)
+                    if 'embeddings' in data:
+                        all_embs = data['embeddings']
+                        centroid = np.mean(all_embs, axis=0)
+                        np.save(CENTROID_PATH, centroid)
+                else:
+                    # fallback: use new batch centroid
+                    centroid = np.mean(emb_norm, axis=0)
+                    np.save(CENTROID_PATH, centroid)
+            else:
+                data = np.load(NPZ_PATH, allow_pickle=True)
+                if 'embeddings' in data:
+                    all_embs = data['embeddings']
+                    centroid = np.mean(all_embs, axis=0)
+                    np.save(CENTROID_PATH, centroid)
+        except Exception as e:
+            print('centroid update failed', e)
+
         r.publish('ml:events', json.dumps({'type':'job_complete','job_id':job_id, 'added': len(items)}))
         print('Job complete', job_id)
     except Exception as e:

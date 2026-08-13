@@ -5,3 +5,4 @@ numpy
 redis
 pydantic
 python-multipart
+faiss-cpu
