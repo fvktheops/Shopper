@@ -3,165 +3,741 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>LUVORA — Code Collaboration Platform</title>
-  <meta name="description" content="LUVORA — A lightweight GitHub-like platform for code hosting, issues, and collaboration." />
+  <title>LUVORA — Git-like Collaboration</title>
+  <meta name="description" content="LUVORA — self-hosted GitHub-like collaboration platform (SPA front-end).">
+  <meta property="og:title" content="LUVORA" />
+  <meta property="og:description" content="Self-hosted GitHub-like collaboration platform." />
+  <!-- Favicon (data URI SVG) -->
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='18' fill='%23ff4d72' /%3E%3Ctext x='50' y='58' font-size='48' text-anchor='middle' fill='white' font-family='Arial,sans-serif'%3EL%3C/text%3E%3C/svg%3E">
   <style>
+    /* CSS variables, theme tokens */
     :root{
-      --bg:#0b1220;
-      --card:#0f1724;
+      --bg:#071025;
+      --panel:#0f1724;
+      --card:#0d1620;
+      --muted:#9aa6bf;
+      --text:#e6eef8;
       --accent:#ff4d72;
-      --muted:#98a0b3;
-      --glass:rgba(255,255,255,0.04);
-      --maxw:1100px;
-      --gap:24px;
+      --glass:rgba(255,255,255,0.03);
+      --radius:10px;
+      --maxw:1200px;
     }
+    /* Reset + base */
     *{box-sizing:border-box}
     html,body{height:100%}
-    body{margin:0;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial;color:#e6eef8;background:linear-gradient(180deg,#061029 0%,#081226 60%);-webkit-font-smoothing:antialiased}
-
-    /* Header */
-    header{position:sticky;top:0;z-index:40;backdrop-filter:blur(6px);background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));border-bottom:1px solid rgba(255,255,255,0.03);padding:10px 16px}
-    .header-inner{max-width:var(--maxw);margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px}
-    .brand{font-weight:800;font-size:20px;color:white;text-decoration:none}
-    .nav{display:flex;gap:14px;align-items:center}
-    .nav-link{color:var(--muted);text-decoration:none;font-size:14px}
-    .cta{background:var(--accent);color:white;padding:8px 12px;border-radius:8px;text-decoration:none;font-weight:700}
-    #mobile-nav-toggle{display:none;background:transparent;border:1px solid rgba(255,255,255,0.04);padding:8px;border-radius:8px}
-
-    .container{max-width:var(--maxw);margin:0 auto;padding:20px}
-
-    .hero{margin:28px auto;padding:22px;background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));border-radius:12px;border:1px solid rgba(255,255,255,0.03);display:grid;grid-template-columns:1fr 360px;gap:var(--gap);align-items:start}
-    .hero-title{font-size:36px;margin:0 0 12px 0;line-height:1.02}
-    .hero-desc{color:var(--muted);margin-bottom:18px;max-width:60ch}
-    .actions{display:flex;gap:12px}
-
-    .card{background:var(--card);padding:14px;border-radius:10px;border:1px solid var(--glass)}
-    .features{display:flex;gap:14px;flex-wrap:wrap;margin-top:16px}
-    .feature{flex:1;min-width:200px;background:rgba(255,255,255,0.02);padding:12px;border-radius:8px}
-
-    footer{background:transparent;padding:18px 0;border-top:1px solid rgba(255,255,255,0.02);margin-top:28px}
-
-    /* Responsive */
-    @media(max-width:1000px){
-      .hero{grid-template-columns:1fr 320px}
-      .hero-title{font-size:30px}
+    body{
+      margin:0; font-family:Inter, system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+      color:var(--text); background:linear-gradient(180deg,#051224 0%, #071025 60%);
+      -webkit-font-smoothing:antialiased; -moz-osx-font-smoothing:grayscale;
+      overflow-x:hidden; /* prevent horizontal scroll */
     }
+    a{color:inherit; text-decoration:none}
+    button{font:inherit}
+    img{max-width:100%;height:auto}
+    /* Layout */
+    .site-header{position:sticky;top:0;z-index:60;padding:10px 16px;background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-bottom:1px solid var(--glass);backdrop-filter: blur(6px);}
+    .inner{max-width:var(--maxw);margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 8px}
+    .brand{display:flex;gap:10px;align-items:center}
+    .brand svg{width:36px;height:36px;flex-shrink:0}
+    .brand h1{font-size:1.05rem;margin:0;line-height:1}
+    .nav{display:flex;gap:12px;align-items:center}
+    .nav a{color:var(--muted);padding:8px;border-radius:8px}
+    .nav a:hover{background:rgba(255,255,255,0.02);color:var(--text)}
+    .btn-cta{background:var(--accent);color:white;padding:8px 12px;border-radius:8px;font-weight:700;border:0}
+    /* mobile nav toggle */
+    #nav-toggle{display:none;background:transparent;border:1px solid rgba(255,255,255,0.04);padding:8px;border-radius:8px}
+    /* skip link for accessibility */
+    .skip-link{position:absolute;left:8px;top:-40px;background:#fff;color:#000;padding:8px;border-radius:6px;z-index:100;transition:top .18s}
+    .skip-link:focus{top:8px}
+    /* Main/hero layout */
+    main{max-width:var(--maxw);margin:28px auto;padding:14px}
+    .hero{display:grid;grid-template-columns:1fr minmax(280px,380px);gap:20px;align-items:start}
+    .card{background:var(--panel);padding:18px;border-radius:var(--radius);border:1px solid var(--glass);box-shadow:0 6px 22px rgba(2,6,23,0.45)}
+    h2{margin:0 0 10px;font-size:clamp(1rem, 2.4vw, 1.4rem)}
+    p.lead{color:var(--muted);margin-top:8px}
+    .features{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-top:12px}
+    .feature{background:rgba(255,255,255,0.02);padding:10px;border-radius:8px}
+    /* Repo list */
+    .repo-list{display:flex;flex-direction:column;gap:10px}
+    .repo-item{display:flex;justify-content:space-between;align-items:center;padding:10px;border-radius:8px;background:rgba(255,255,255,0.02)}
+    .muted{color:var(--muted)}
+    /* Forms */
+    label{display:block;font-size:.9rem;color:var(--muted);margin-bottom:6px}
+    input,select,textarea{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:var(--text)}
+    .form-row{display:flex;gap:8px}
+    .form-row input{flex:1}
+    /* Footer */
+    footer{margin-top:28px;padding:18px 0;color:var(--muted);border-top:1px solid rgba(255,255,255,0.02)}
+    /* Responsive tweaks */
+    @media(max-width:1000px){.hero{grid-template-columns:1fr 320px}}
     @media(max-width:760px){
-      .hero{grid-template-columns:1fr;gap:14px;padding:18px}
-      .hero-title{font-size:24px}
-      .hero-desc{max-width:none}
-      .card{padding:12px}
+      .hero{grid-template-columns:1fr;gap:12px}
       .nav{display:none}
-      #mobile-nav-toggle{display:block}
+      #nav-toggle{display:block}
     }
+    /* Mobile nav: slide-down panel */
+    .mobile-panel{position:fixed;left:0;right:0;top:0;background:var(--panel);padding:18px;border-bottom:1px solid var(--glass);transform:translateY(-110%);transition:transform .28s ease-in-out;z-index:80}
+    .mobile-panel.open{transform:translateY(0)}
+    .mobile-panel .links{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+    /* small helpers */
+    .toast{position:fixed;right:18px;bottom:18px;background:rgba(0,0,0,0.6);color:white;padding:10px 14px;border-radius:8px;z-index:90}
+    .loading{opacity:.7}
+    .muted-small{color:var(--muted);font-size:.9rem}
+    /* focus styles */
+    :focus{outline:3px solid rgba(255,77,114,0.14);outline-offset:2px}
   </style>
 </head>
 <body>
-  <!-- Inlined header (no dynamic loading) -->
-  <header>
-    <div class="header-inner">
-      <a class="brand" href="/">LUVORA</a>
+  <!-- Skip to content for keyboard users -->
+  <a href="#main" class="skip-link">Skip to content</a>
 
-      <nav id="main-nav" class="nav" aria-label="Main navigation">
-        <a class="nav-link" href="/explore">Explore</a>
-        <a class="nav-link" href="/features">Features</a>
-        <a class="nav-link" href="/docs">Docs</a>
-        <a class="nav-link" href="/login">Sign in</a>
-        <a class="cta" href="/signup">Get started</a>
-      </nav>
+  <!-- SITE HEADER -->
+  <header class="site-header" role="banner" aria-label="Main header">
+    <div class="inner">
+      <div class="brand" aria-hidden="false">
+        <!-- Inline logo SVG -->
+        <svg viewBox="0 0 48 48" aria-hidden="true" focusable="false"><rect width="48" height="48" rx="10" fill="#ff4d72"></rect><text x="50%" y="60%" text-anchor="middle" font-family="Arial, sans-serif" font-weight="700" font-size="24" fill="#fff">L</text></svg>
+        <h1 style="font-size:1rem;margin-left:6px">LUVORA</h1>
+      </div>
 
-      <!-- Mobile toggle -->
-      <button id="mobile-nav-toggle" aria-label="Toggle navigation">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 7h18M3 12h18M3 17h18" stroke="#e6eef8" stroke-width="1.6" stroke-linecap="round"/></svg>
+      <!-- Desktop Nav -->
+      <nav class="nav" aria-label="Primary navigation" id="desktop-nav"></nav>
+
+      <!-- Mobile Nav Toggle -->
+      <button id="nav-toggle" aria-label="Open navigation" aria-expanded="false" aria-controls="mobile-panel">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 7h18M3 12h18M3 17h18" stroke="white" stroke-width="1.6" stroke-linecap="round"/></svg>
       </button>
     </div>
   </header>
 
-  <main class="container">
-    <section class="hero" role="main">
-      <div>
-        <h1 class="hero-title">A modern platform for code collaboration — LUVORA</h1>
-        <p class="hero-desc">Create repositories, open issues, review code, and collaborate in real time. LUVORA is a lightweight GitHub-like platform you can self-host and extend.</p>
+  <!-- Mobile slide-down panel (hidden on desktop) -->
+  <div id="mobile-panel" class="mobile-panel" role="dialog" aria-modal="true" aria-hidden="true">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div style="display:flex;gap:10px;align-items:center"><svg viewBox="0 0 48 48" width="34" height="34"><rect width="48" height="48" rx="10" fill="#ff4d72"></rect><text x="50%" y="60%" text-anchor="middle" font-family="Arial" font-weight="700" font-size="20" fill="#fff">L</text></svg><strong>LUVORA</strong></div>
+      <button id="mobile-close" aria-label="Close navigation" style="background:transparent;border:0;color:var(--muted)">Close</button>
+    </div>
+    <nav class="links" id="mobile-links" aria-label="Mobile navigation"></nav>
+  </div>
 
-        <div class="actions">
-          <a class="cta" href="/app">Open LUVORA</a>
-          <a class="nav-link" href="https://github.com/fvktheops/Shopper" target="_blank" rel="noopener">View project on GitHub</a>
-        </div>
+  <!-- Main content container (router renders into #main) -->
+  <main id="main" tabindex="-1" role="main"></main>
 
-        <div class="features">
-          <div class="feature">
-            <strong>Repositories</strong>
-            <div style="color:var(--muted);margin-top:8px">Create and host Git repositories with full commit history and a browser-based code view.</div>
-          </div>
-          <div class="feature">
-            <strong>Issues & PRs</strong>
-            <div style="color:var(--muted);margin-top:8px">Track bugs, requests, and collaborate on pull requests with inline comments and reviews.</div>
-          </div>
-          <div class="feature">
-            <strong>Real-time</strong>
-            <div style="color:var(--muted);margin-top:8px">Live notifications and comment streaming using WebSockets (Socket.io + Redis adapter).</div>
-          </div>
-          <div class="feature">
-            <strong>Extensible</strong>
-            <div style="color:var(--muted);margin-top:8px">Add CI, webhooks, and integrations. Designed for self-hosting and cloud deployment behind Cloudflare.</div>
-          </div>
-        </div>
-      </div>
+  <!-- Toast container -->
+  <div id="toast-root" aria-live="polite" style="position:fixed;right:18px;bottom:18px;z-index:120"></div>
 
-      <aside class="card">
-        <h3 style="margin-top:0">Quick start</h3>
-        <ol style="color:var(--muted);padding-left:18px">
-          <li>Sign up and create an account</li>
-          <li>Create your first repository</li>
-          <li>Clone using the provided clone URL</li>
-          <li>Open issues and collaborate</li>
-        </ol>
-
-        <div style="margin-top:12px">
-          <div style="font-size:13px;color:var(--muted)">Run locally</div>
-          <code style="display:block;margin-top:8px">docker compose up --build</code>
-        </div>
-      </aside>
-    </section>
-  </main>
-
-  <!-- Inlined footer -->
-  <footer>
-    <div style="max-width:var(--maxw);margin:0 auto;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:0 16px;color:var(--muted)">
+  <!-- Footer -->
+  <footer role="contentinfo">
+    <div style="max-width:var(--maxw);margin:0 auto;display:flex;justify-content:space-between;align-items:center;padding:0 14px">
       <div>© <strong>LUVORA</strong> — Built from the Shopper scaffold.</div>
-      <div style="display:flex;gap:12px;align-items:center">
-        <a class="nav-link" href="/docs">Docs</a>
-        <a class="nav-link" href="/support">Support</a>
-        <a class="nav-link" href="/privacy">Privacy</a>
-      </div>
+      <div class="muted-small">Docs • Support • Privacy</div>
     </div>
   </footer>
 
   <script>
-    // Mobile nav toggle behavior
-    (function(){
-      const btn = document.getElementById('mobile-nav-toggle');
-      const nav = document.getElementById('main-nav');
-      if(!btn || !nav) return;
-      function setNavDefault(){
-        if(window.innerWidth < 760){ nav.style.display = 'none'; nav.setAttribute('data-open','false'); }
-        else { nav.style.display = 'flex'; nav.setAttribute('data-open','true'); }
+    /************************************************************************
+     * LUVORA Single-file SPA front-end
+     * - Client-side router (History API)
+     * - Auth state (GET /api/auth/me) and protected /app route
+     * - Pages: /, /explore, /features, /docs, /signup, /login, /app, /support, /privacy
+     * - Mobile nav with focus trap & ESC to close
+     * - Mock mode if URL param ?mock=1 (useful for preview without backend)
+     *
+     * Important: Fetches to protected endpoints must use credentials: 'include'
+     * (server should set HTTP-only cookie on successful login/register).
+     ************************************************************************/
+
+    /* ---------- CONFIG ---------- */
+    const API_BASE = '/api'; // change if API served on different prefix/origin
+    const MOCK = new URL(location.href).searchParams.get('mock') === '1';
+
+    /* ---------- Simple utilities ---------- */
+    const el = (sel) => document.querySelector(sel);
+    const create = (tag, props = {}, ...children) => {
+      const n = document.createElement(tag);
+      for (const k in props){
+        if (k === 'class') n.className = props[k];
+        else if (k === 'attrs') Object.entries(props.attrs).forEach(([a,v])=>n.setAttribute(a,v));
+        else if (k.startsWith('on') && typeof props[k] === 'function') n.addEventListener(k.slice(2), props[k]);
+        else n[k] = props[k];
       }
-      setNavDefault();
-      btn.addEventListener('click', ()=>{
-        const open = nav.getAttribute('data-open') === 'true';
-        nav.setAttribute('data-open', open ? 'false' : 'true');
-        nav.style.display = open ? 'none' : 'flex';
-      });
-      window.addEventListener('resize', setNavDefault);
-      // close nav when clicking outside on mobile
-      document.addEventListener('click', (e)=>{
-        if(window.innerWidth >= 760) return;
-        if(!nav.contains(e.target) && !btn.contains(e.target)){
-          nav.style.display = 'none'; nav.setAttribute('data-open','false');
+      children.flat().forEach(c => { if (typeof c === 'string') n.appendChild(document.createTextNode(c)); else if (c) n.appendChild(c); });
+      return n;
+    };
+    function toast(msg, ms = 4000){ const t = create('div',{class:'toast'},msg); el('#toast-root').appendChild(t); setTimeout(()=>t.remove(), ms); }
+
+    /* ---------- Simple in-memory mock server (when ?mock=1) ---------- */
+    const MockServer = (() => {
+      let users = [{id:1, username:'fvktheops', email:'fvktheops@example.com', password:'ChangeMe123!',}];
+      let repos = [{id:1, owner:'fvktheops', name:'example-repo', visibility:'public'}];
+      let currentUserId = null;
+      return {
+        async request(path, opts){
+          // simple router
+          const method = (opts.method||'GET').toUpperCase();
+          if (path === '/auth/me' && method === 'GET'){
+            if (!currentUserId) return {status:401, body:{error:'unauthenticated'}};
+            const u = users.find(x=>x.id===currentUserId);
+            return {status:200, body:{user:{id:u.id, username:u.username, email:u.email}}};
+          }
+          if (path === '/auth/register' && method === 'POST'){
+            const {username,email,password} = opts.body;
+            if (!username||!email||!password) return {status:400, body:{error:'missing'}};
+            if (users.find(u=>u.email===email||u.username===username)) return {status:409, body:{error:'user exists'}};
+            const id = users.length+1; users.push({id,username,email,password}); currentUserId = id;
+            return {status:201, body:{user:{id,username,email}}};
+          }
+          if (path === '/auth/login' && method === 'POST'){
+            const {email,password} = opts.body;
+            const u = users.find(x=>x.email===email && x.password===password);
+            if (!u) return {status:401, body:{error:'invalid'}};
+            currentUserId = u.id; return {status:200, body:{user:{id:u.id,username:u.username,email:u.email}}};
+          }
+          if (path === '/auth/logout' && method === 'POST'){ currentUserId = null; return {status:200, body:{ok:true}}; }
+          if (path === '/repos' && method === 'GET'){ return {status:200, body:repos}; }
+          if (path === '/repos' && method === 'POST'){
+            const {name} = opts.body;
+            if (!currentUserId) return {status:401, body:{error:'unauthenticated'}};
+            if (!name) return {status:400, body:{error:'name required'}};
+            const owner = users.find(u=>u.id===currentUserId).username;
+            repos.push({id:repos.length+1, owner, name, visibility:'public'});
+            return {status:201, body:{owner, name}};
+          }
+          return {status:404, body:{error:'not found'}};
         }
-      });
+      };
     })();
+
+    /* ---------- API wrapper (handles mock mode) ---------- */
+    async function apiFetch(path, opts = {}, useJson = true){
+      const method = (opts.method||'GET').toUpperCase();
+      const headers = opts.headers || {};
+      let body = opts.body;
+      if (useJson && body && typeof body !== 'string'){
+        headers['Content-Type'] = 'application/json';
+        body = JSON.stringify(body);
+      }
+      // Mock mode (in-memory)
+      if (MOCK){
+        try{
+          const parsedBody = opts.body;
+          const res = await MockServer.request(path.replace(/^\/api/,''), {method, body: parsedBody});
+          return {ok: res.status >= 200 && res.status < 300, status: res.status, json: async ()=>res.body};
+        }catch(e){ return {ok:false, status:500, json:async()=>({error:'mock error'})}; }
+      }
+      // Real fetch (credentials included for cookie auth)
+      try{
+        const r = await fetch(API_BASE + path, {
+          method,
+          headers,
+          body,
+          credentials: 'include', // important for HTTP-only cookie auth
+        });
+        const text = await r.text();
+        let data = null;
+        try{ data = text ? JSON.parse(text) : null; }catch(e){ data = text; }
+        return {ok:r.ok, status:r.status, json:async()=>data};
+      }catch(err){
+        return {ok:false, status:0, json:async()=>({error:err.message || 'network error'})};
+      }
+    }
+
+    /* ---------- AUTH state and helpers ---------- */
+    let CURRENT_USER = null;
+    async function fetchMe(){
+      // calls GET /api/auth/me
+      const res = await apiFetch('/auth/me', {method:'GET'});
+      if (res.ok){ const data = await res.json(); CURRENT_USER = data.user; } else { CURRENT_USER = null; }
+      renderHeader(); // update UI
+      return CURRENT_USER;
+    }
+    async function doLogin(email,password){
+      const res = await apiFetch('/auth/login', {method:'POST', body:{email,password}}, true);
+      const data = await res.json();
+      if (res.ok){ CURRENT_USER = data.user; renderHeader(); return {ok:true}; }
+      return {ok:false, error: data.error || 'Login failed'};
+    }
+    async function doRegister(username,email,password){
+      const res = await apiFetch('/auth/register', {method:'POST', body:{username,email,password}}, true);
+      const data = await res.json();
+      if (res.ok){ CURRENT_USER = data.user; renderHeader(); return {ok:true}; }
+      return {ok:false, error: data.error || 'Registration failed'};
+    }
+    async function doLogout(){
+      const res = await apiFetch('/auth/logout', {method:'POST'});
+      CURRENT_USER = null;
+      renderHeader();
+      return res.ok;
+    }
+
+    /* ---------- ROUTER ---------- */
+    const ROUTES = {
+      '/': renderLanding,
+      '/explore': renderExplore,
+      '/features': renderFeatures,
+      '/docs': renderDocs,
+      '/signup': renderSignup,
+      '/login': renderLogin,
+      '/app': renderApp,
+      '/support': renderSupport,
+      '/privacy': renderPrivacy,
+    };
+    function navigate(path, replace=false){
+      if (location.pathname === path) return; // same
+      if (replace) history.replaceState({},'',path); else history.pushState({},'',path);
+      route();
+    }
+    window.addEventListener('popstate', route);
+
+    function route(){
+      const path = location.pathname;
+      const page = ROUTES[path] || renderNotFound;
+      // render
+      focusMain();
+      page();
+    }
+
+    function focusMain(){ const m = el('#main'); if (m){ m.focus(); } }
+
+    /* ---------- Header rendering & nav wiring ---------- */
+    function renderHeader(){
+      const desktopNav = el('#desktop-nav');
+      desktopNav.innerHTML = '';
+      const links = [
+        {href:'/', label:'Home'},
+        {href:'/explore', label:'Explore'},
+        {href:'/features', label:'Features'},
+        {href:'/docs', label:'Docs'},
+      ];
+      links.forEach(l => {
+        const a = create('a',{href:l.href, class:'nav-link', onclick:(e)=>{ e.preventDefault(); navigate(l.href); }}, l.label);
+        desktopNav.appendChild(a);
+      });
+      if (CURRENT_USER){
+        // user menu
+        const userButton = create('div',{}, create('button',{class:'nav-link', onclick: (e)=>{ e.preventDefault(); showUserMenu(e); }}, CURRENT_USER.username));
+        desktopNav.appendChild(userButton);
+      } else {
+        const signin = create('a',{class:'nav-link', href:'/login', onclick:(e)=>{e.preventDefault(); navigate('/login');}}, 'Sign in');
+        const signup = create('button',{class:'btn-cta', onclick:(e)=>{navigate('/signup')}}, 'Get started');
+        desktopNav.appendChild(signin);
+        desktopNav.appendChild(signup);
+      }
+
+      // Mobile links
+      const mobileLinks = el('#mobile-links');
+      mobileLinks.innerHTML = '';
+      mobileLinks && links.concat([{href:'/support',label:'Support'},{href:'/privacy',label:'Privacy'}]).forEach(l=>{
+        const a = create('a',{href:l.href, onclick:(e)=>{e.preventDefault(); closeMobileNav(); navigate(l.href);}}, l.label);
+        mobileLinks.appendChild(a);
+      });
+      if (CURRENT_USER){
+        const ud = create('div',{}, create('div',{}, `Signed in as ${CURRENT_USER.username}`));
+        const logout = create('button',{onclick: async ()=>{ await doLogout(); toast('Signed out'); closeMobileNav(); navigate('/login'); }}, 'Sign out');
+        mobileLinks.appendChild(ud); mobileLinks.appendChild(logout);
+      } else {
+        const login = create('button',{onclick:()=>{ closeMobileNav(); navigate('/login'); }}, 'Sign in');
+        mobileLinks.appendChild(login);
+      }
+    }
+
+    function showUserMenu(e){
+      // simple popup: show options in small menu (basic)
+      const existing = document.getElementById('user-menu');
+      if (existing){ existing.remove(); return; }
+      const btn = e.currentTarget;
+      const rect = btn.getBoundingClientRect();
+      const menu = create('div',{id:'user-menu', class:'card', style:`position:fixed;top:${rect.bottom+8}px;left:${rect.left}px;z-index:120;padding:10px;`},
+        create('div',{}, create('strong',{}, CURRENT_USER.username)),
+        create('div', {style:'margin-top:8px'}, create('button',{onclick:async ()=>{ await doLogout(); menu.remove(); navigate('/login'); }}, 'Sign out'))
+      );
+      document.body.appendChild(menu);
+      const close = (ev) => { if (!menu.contains(ev.target) && ev.target!==btn) menu.remove(); };
+      document.addEventListener('click', close, {once:true});
+    }
+
+    /* ---------- Mobile nav open/close + focus trap ---------- */
+    const mobilePanel = el('#mobile-panel');
+    const navToggle = el('#nav-toggle');
+    const mobileClose = el('#mobile-close');
+    function openMobileNav(){
+      mobilePanel.classList.add('open'); mobilePanel.setAttribute('aria-hidden','false'); navToggle.setAttribute('aria-expanded','true');
+      // focus trap: focus first link
+      const first = mobilePanel.querySelector('a,button');
+      if (first) first.focus();
+      document.addEventListener('keydown', trapMobileNav);
+      document.addEventListener('click', outsideMobileClick);
+    }
+    function closeMobileNav(){
+      mobilePanel.classList.remove('open'); mobilePanel.setAttribute('aria-hidden','true'); navToggle.setAttribute('aria-expanded','false');
+      document.removeEventListener('keydown', trapMobileNav);
+      document.removeEventListener('click', outsideMobileClick);
+      navToggle.focus();
+    }
+    function trapMobileNav(e){
+      if (e.key === 'Escape'){ closeMobileNav(); return; }
+      // simple tab trap
+      if (e.key === 'Tab'){
+        const focusables = Array.from(mobilePanel.querySelectorAll('a,button,input,textarea,select'));
+        if (!focusables.length) return;
+        const first = focusables[0], last = focusables[focusables.length-1];
+        if (e.shiftKey && document.activeElement === first){ e.preventDefault(); last.focus(); }
+        else if (!e.shiftKey && document.activeElement === last){ e.preventDefault(); first.focus(); }
+      }
+    }
+    function outsideMobileClick(e){
+      if (!mobilePanel.contains(e.target) && e.target !== navToggle) closeMobileNav();
+    }
+
+    navToggle.addEventListener('click', ()=>{ const open = mobilePanel.classList.contains('open'); open?closeMobileNav():openMobileNav(); });
+    mobileClose && mobileClose.addEventListener('click', closeMobileNav);
+
+    /* ---------- Page renderers ---------- */
+
+    // Utility to set main content
+    function setMain(node){
+      const main = el('#main'); main.innerHTML=''; main.appendChild(node); focusMain();
+    }
+
+    function renderLanding(){
+      const node = create('div',{},
+        create('section',{class:'hero'},
+          create('div',{},
+            create('div', {style:'display:flex;align-items:center;gap:12px'},
+              // decorative badge
+              create('div',{style:'background:linear-gradient(90deg,#ff4d72,#ff7b9a);padding:10px;border-radius:10px;color:white;font-weight:700'}, 'LUVORA')
+            ),
+            create('h2',{}, 'A modern platform for code collaboration'),
+            create('p',{class:'lead'}, 'Create repositories, open issues, review code, and collaborate in real time. Self-host and extend LUVORA for your team.'),
+            create('div',{style:'display:flex;gap:10px;margin-top:12px'},
+              create('button',{class:'btn-cta', onclick:()=>navigate('/app')}, 'Open LUVORA'),
+              create('a',{href:'/explore', onclick:(e)=>{e.preventDefault(); navigate('/explore')}}, create('div',{}, 'Explore'))
+            ),
+            create('div',{class:'features'},
+              create('div',{class:'feature'}, create('strong',{}, 'Repositories'), create('div',{class:'muted-small'}, 'Host real git repositories.')),
+              create('div',{class:'feature'}, create('strong',{}, 'Issues & PRs'), create('div',{class:'muted-small'}, 'Track bugs and propose changes.')),
+              create('div',{class:'feature'}, create('strong',{}, 'Realtime'), create('div',{class:'muted-small'}, 'Live notifications and comments.')),
+              create('div',{class:'feature'}, create('strong',{}, 'Extensible'), create('div',{class:'muted-small'}, 'Webhooks, CI, and integrations.'))
+            )
+          ),
+          create('aside',{class:'card'},
+            create('h3',{}, 'Quick start'),
+            create('ol',{class:'muted-small'},
+              create('li',{}, 'Sign up and create an account'),
+              create('li',{}, 'Create your first repository'),
+              create('li',{}, 'Clone using provided URL'),
+              create('li',{}, 'Open issues and collaborate')
+            ),
+            create('div',{style:'margin-top:10px', class:'muted-small'}, 'Run locally:'),
+            create('code',{}, 'docker compose up --build')
+          )
+        )
+      );
+      setMain(node);
+    }
+
+    async function renderExplore(){
+      const node = create('div',{},
+        create('div',{class:'card'},
+          create('h2',{}, 'Explore repositories'),
+          create('p',{class:'muted-small'}, 'Public repositories on this instance'),
+          create('div',{id:'explore-list', style:'margin-top:12px'}, 'Loading...')
+        )
+      );
+      setMain(node);
+      // fetch repos
+      const container = el('#explore-list');
+      container.textContent = 'Loading...';
+      const res = await apiFetch('/repos', {method:'GET'});
+      if (!res.ok){ const data = await res.json(); container.innerHTML = `<div class="muted-small">Failed to load: ${data.error||res.status}</div>`; return; }
+      const repos = await res.json();
+      if (!Array.isArray(repos) || repos.length === 0){ container.innerHTML = '<div class="muted-small">No repositories found.</div>'; return; }
+      container.innerHTML = '';
+      repos.forEach(r=>{
+        const item = create('a',{class:'repo-item', href:`/app?repo=${encodeURIComponent(r.owner+'/'+r.name)}`, onclick:(e)=>{ e.preventDefault(); navigate('/app'); setTimeout(()=>showRepoDetails(r),50); }},
+          create('div',{}, create('strong',{}, `${r.owner}/${r.name}`), create('div',{class:'muted-small'}, `${r.visibility}`)),
+          create('div',{}, create('button',{onclick:(e)=>{ e.preventDefault(); showRepoDetails(r); }}, 'View'))
+        );
+        container.appendChild(item);
+      });
+    }
+
+    function renderFeatures(){
+      const node = create('div',{},
+        create('div',{class:'card'},
+          create('h2',{}, 'Features'),
+          create('div',{class:'muted-small', style:'margin-top:8px'}, 'LUVORA aims to provide a compact set of features for code collaboration.'),
+          create('div',{style:'margin-top:12px'}, 
+            create('ul',{},
+              create('li',{}, 'Repositories with commit history'),
+              create('li',{}, 'Issues & Pull Requests'),
+              create('li',{}, 'Realtime notifications & comments'),
+              create('li',{}, 'Webhooks & CI integrations')
+            )
+          )
+        )
+      );
+      setMain(node);
+    }
+
+    function renderDocs(){
+      const node = create('div',{},
+        create('div',{class:'card'},
+          create('h2',{}, 'Documentation'),
+          create('p',{class:'muted-small'}, 'Quickstart and server requirements are listed below. See README in the repository for full deployment steps.')
+        )
+      );
+      setMain(node);
+    }
+
+    function renderSupport(){
+      const node = create('div',{},
+        create('div',{class:'card'},
+          create('h2',{}, 'Support'),
+          create('p',{class:'muted-small'}, 'For help, open an issue in the project repository or contact your instance administrator.')
+        )
+      );
+      setMain(node);
+    }
+    function renderPrivacy(){
+      const node = create('div',{},
+        create('div',{class:'card'},
+          create('h2',{}, 'Privacy'),
+          create('p',{class:'muted-small'}, 'This is a demo instance. Configure data retention and privacy policies for production use.')
+        )
+      );
+      setMain(node);
+    }
+
+    /************** Auth pages **************/
+    function renderSignup(){
+      const node = create('div',{},
+        create('div',{class:'card'},
+          create('h2',{}, 'Create account'),
+          create('form',{id:'signup-form', onsubmit: async (e)=>{ e.preventDefault(); await handleSignup(); }},
+            create('label', {for:'su-username'}, 'Username'),
+            create('input',{id:'su-username', name:'username', required:true, autocomplete:'username'}),
+            create('label', {for:'su-email'}, 'Email'),
+            create('input',{id:'su-email', name:'email', type:'email', required:true, autocomplete:'email'}),
+            create('label', {for:'su-password'}, 'Password'),
+            create('input',{id:'su-password', name:'password', type:'password', required:true, autocomplete:'new-password'}),
+            create('div',{style:'margin-top:10px'}, create('button',{type:'submit', class:'btn-cta'}, 'Create account'))
+          ),
+          create('p',{class:'muted-small', style:'margin-top:10px'}, 'Already have an account? ', create('a',{href:'/login', onclick:(e)=>{e.preventDefault(); navigate('/login')}}, 'Sign in'))
+        )
+      );
+      setMain(node);
+    }
+    async function handleSignup(){
+      const username = el('#su-username').value.trim();
+      const email = el('#su-email').value.trim();
+      const password = el('#su-password').value;
+      if (!username || !email || !password) return toast('Fill all fields');
+      const res = await apiFetch('/auth/register',{method:'POST', body:{username,email,password}}, true);
+      const data = await res.json();
+      if (!res.ok) return toast('Registration failed: ' + (data.error || res.status));
+      toast('Account created — signed in');
+      await fetchMe();
+      navigate('/app');
+    }
+
+    function renderLogin(){
+      const node = create('div',{},
+        create('div',{class:'card'},
+          create('h2',{}, 'Sign in'),
+          create('form',{id:'login-form', onsubmit:async (e)=>{ e.preventDefault(); await handleLogin(); }},
+            create('label',{for:'li-email'}, 'Email'),
+            create('input',{id:'li-email', name:'email', type:'email', required:true, autocomplete:'email'}),
+            create('label',{for:'li-password'}, 'Password'),
+            create('input',{id:'li-password', name:'password', type:'password', required:true, autocomplete:'current-password'}),
+            create('div',{style:'margin-top:10px'}, create('button',{type:'submit', class:'btn-cta'}, 'Sign in'))
+          ),
+          create('p',{class:'muted-small', style:'margin-top:8px'}, 'New here? ', create('a',{href:'/signup', onclick:(e)=>{e.preventDefault(); navigate('/signup')}}, 'Create an account'))
+        )
+      );
+      setMain(node);
+    }
+    async function handleLogin(){
+      const email = el('#li-email').value.trim();
+      const password = el('#li-password').value;
+      if (!email || !password) return toast('Fill all fields');
+      const res = await apiFetch('/auth/login', {method:'POST', body:{email,password}}, true);
+      const data = await res.json();
+      if (!res.ok) return toast('Login failed: ' + (data.error || res.status));
+      toast('Signed in');
+      await fetchMe();
+      navigate('/app');
+    }
+
+    /************** App dashboard (protected) **************/
+    async function renderApp(){
+      // Protect route: ensure user authenticated
+      const me = await fetchMe();
+      if (!me){ toast('Please sign in'); navigate('/login'); return; }
+
+      const node = create('div',{},
+        create('div',{class:'card'},
+          create('h2',{}, 'Your repositories'),
+          create('p',{class:'muted-small'}, 'Create and manage repositories from your dashboard.'),
+          create('div',{style:'margin-top:12px', class:'form-row'},
+            create('input',{id:'new-repo-name', placeholder:'repository-name'}),
+            create('button',{id:'create-repo-btn', class:'btn-cta', onclick: createRepo}, 'Create')
+          ),
+          create('div',{id:'repo-list', style:'margin-top:12px'}, 'Loading...')
+        )
+      );
+      setMain(node);
+      await loadReposForApp();
+    }
+
+    async function loadReposForApp(){
+      const container = el('#repo-list');
+      container.innerHTML = 'Loading...';
+      const res = await apiFetch('/repos', {method:'GET'});
+      if (!res.ok){
+        const data = await res.json();
+        container.innerHTML = `<div class="muted-small">Failed to load repositories: ${data.error || res.status}. (If previewing without backend, add ?mock=1)</div>`;
+        return;
+      }
+      const repos = await res.json();
+      if (!Array.isArray(repos) || repos.length === 0){ container.innerHTML = '<div class="muted-small">No repositories yet.</div>'; return; }
+      container.innerHTML = '';
+      repos.forEach(r=>{
+        const item = create('div',{class:'repo-item'},
+          create('div',{}, create('strong',{}, `${r.owner}/${r.name}`), create('div',{class:'muted-small'}, `${r.visibility}`)),
+          create('div',{},
+            create('button',{onclick:()=>showRepoDetails(r)}, 'Details')
+          )
+        );
+        container.appendChild(item);
+      });
+    }
+
+    async function createRepo(){
+      const name = el('#new-repo-name').value.trim();
+      if (!name) return toast('Enter repository name');
+      const res = await apiFetch('/repos', {method:'POST', body:{name}}, true);
+      const data = await res.json();
+      if (!res.ok) return toast('Create repo failed: ' + (data.error || res.status));
+      toast('Repository created');
+      el('#new-repo-name').value = '';
+      await loadReposForApp();
+    }
+
+    // Display details including clone instructions and README fetch
+    async function showRepoDetails(r){
+      const modal = create('div',{class:'card', style:'position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:140;min-width:280px;max-width:90%;'}, 
+        create('h3',{}, `${r.owner}/${r.name}`),
+        create('div',{class:'muted-small'}, `Visibility: ${r.visibility}`),
+        create('div',{style:'margin-top:10px'}, create('div',{}, 'Clone (HTTPS):'), create('code',{}, `${location.origin}/repos/${r.owner}/${r.name}.git`)),
+        create('div',{style:'margin-top:8px'}, create('div',{}, 'Clone (SSH):'), create('code',{}, `git@${location.host}:${r.owner}/${r.name}.git`)),
+        create('div',{style:'margin-top:12px'}, create('button',{onclick:async ()=>{
+          // fetch README if exists
+          const res = await apiFetch(`/repos/${encodeURIComponent(r.owner)}/${encodeURIComponent(r.name)}/README`, {method:'GET'});
+          if (!res.ok){ const d = await res.json(); toast('README not found: ' + (d.error || res.status)); return; }
+          const d = await res.json();
+          alert('README:\n\n' + (d.content||''));
+        }}, 'View README (if available)'})),
+        create('div',{style:'margin-top:12px'}, create('button',{onclick:()=>modal.remove()}, 'Close'))
+      );
+      document.body.appendChild(modal);
+    }
+
+    function renderNotFound(){
+      const node = create('div',{},
+        create('div',{class:'card'},
+          create('h2',{}, 'Page not found'),
+          create('p',{class:'muted-small'}, 'The requested page does not exist. Returning to the home page.'),
+          create('div',{style:'margin-top:10px'}, create('button',{onclick:()=>navigate('/')}, 'Go home'))
+        )
+      );
+      setMain(node);
+    }
+
+    /* ---------- Bootstrapping & event delegation for internal links ---------- */
+    function hijackLinks(){
+      document.body.addEventListener('click', (e)=>{
+        const a = e.target.closest('a');
+        if (!a) return;
+        const href = a.getAttribute('href');
+        if (!href) return;
+        // only intercept same-origin internal navigation (no external links, fragments, mailto)
+        if (href.startsWith('http') || href.startsWith('mailto:') || href.startsWith('#')) return;
+        e.preventDefault();
+        // close mobile nav if open
+        if (mobilePanel.classList.contains('open')) closeMobileNav();
+        history.pushState({},'',href);
+        route();
+      });
+    }
+
+    /* ---------- Initial load ---------- */
+    async function init(){
+      renderHeader();
+      hijackLinks();
+      // pre-fetch user state
+      await fetchMe();
+      // mount desktop nav initial markup (will be updated by renderHeader)
+      // handle initial route on load
+      route();
+    }
+
+    init();
+
+    // Expose navigate for console/debug
+    window.LUVORA = { navigate, apiFetch, MOCK };
   </script>
+
+  <!-- README (server requirements & notes) -->
+  <!--
+  README - LUVORA single-file SPA
+
+  How to run
+  - Place this index.html at your site's root (repo root for quick static preview).
+  - For full functionality (auth, repo create/list, README view) the backend API must be running at the same origin under /api endpoints.
+  - For local development using the provided scaffold, use Docker Compose:
+      docker compose up --build
+    Backend API should be reachable at http://localhost:4000 and this page served from same origin (or configure CORS accordingly).
+
+  Required server endpoints (expected paths & payloads)
+  - POST /api/auth/register
+      Body JSON: { username, email, password }
+      On success: server should set HTTP-only cookie and return { user }
+  - POST /api/auth/login
+      Body JSON: { email, password }
+      On success: server should set HTTP-only cookie and return { user }
+  - POST /api/auth/logout
+      No body required. Clears server session/cookie.
+  - GET /api/auth/me
+      Returns { user } when authenticated, 401 when not.
+  - GET /api/repos
+      Returns array of repositories: [{ id, owner, name, visibility }, ...]
+  - POST /api/repos
+      Body JSON: { name }
+      Protected endpoint (requires session). Returns created repo info.
+
+  Optional (used for README view if backend implements):
+  - GET /api/repos/:owner/:repo/README
+      Returns { content: '...' } or 404 if not present.
+
+  Notes & environment considerations
+  - All protected requests from the client are sent with credentials: 'include' to allow HTTP-only cookie authentication.
+  - Backend must set CORS to allow credentials if the frontend is on a different origin. Prefer serving this SPA from same origin as API.
+  - Ensure JWT_SECRET / session secret and DB credentials are configured in backend for production. Replace any dev default secrets.
+
+  How to change branding & accent
+  - Logo: inline at top of file (SVG). Replace the inline SVG near the .brand element.
+  - Favicon: data URI in <link rel="icon">. Replace with a preferred data-URI or a link to /favicon.ico.
+  - Accent color: adjust --accent CSS variable in the <style> block.
+  - API base URL: change API_BASE constant in the script (near the top). If API is on a different origin, update API_BASE and configure CORS accordingly.
+
+  Mock mode (preview without backend)
+  - Append ?mock=1 to the URL (e.g., http://localhost:8000/index.html?mock=1). The SPA will run an in-memory mock server to demo auth and repo flows.
+
+  Accessibility & notes for production
+  - The SPA includes basic ARIA attributes, keyboard focus handling, and a skip-to-content link. For production, consider:
+    - Running Lighthouse for accessibility/perf audits.
+    - Replacing alert() usage with a robust toast notification system.
+    - Implementing server-side HTML for SEO if needed; this is a client-rendered SPA.
+  -->
 </body>
 </html>
