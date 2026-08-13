@@ -3,433 +3,97 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Checkout | LUVORA</title>
-  <meta name="description" content="Fast, secure checkout — LUVORA" />
+  <title>LUVORA — Code Collaboration Platform</title>
+  <meta name="description" content="LUVORA — A lightweight GitHub-like platform for code hosting, issues, and collaboration." />
   <style>
-    :root{
-      --accent:#ff4d72; /* Shein-like pink */
-      --muted:#8a8a8a;
-      --bg:#f5f5f7;
-      --card:#fff;
-      --border:#e9e9ea;
-      --success:#22c55e;
-      --shadow: 0 8px 24px rgba(15,15,15,0.06);
-      --radius:6px;
-      --maxw:1200px;
-    }
+    :root{--bg:#0b1220;--card:#0f1724;--accent:#ff4d72;--muted:#98a0b3;--glass:rgba(255,255,255,0.04)}
     *{box-sizing:border-box}
-    body{
-      margin:0;
-      font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial;
-      background:var(--bg);
-      color:#111;
-      -webkit-font-smoothing:antialiased;
-      -moz-osx-font-smoothing:grayscale;
-      padding-bottom:60px;
-    }
+    body{margin:0;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial;color:#e6eef8;background:linear-gradient(180deg,#061029 0%,#081226 60%);min-height:100vh}
+    header{display:flex;justify-content:space-between;align-items:center;padding:20px 36px}
+    .brand{font-weight:800;font-size:20px;color:white;text-decoration:none}
+    nav{display:flex;gap:14px;align-items:center}
+    .nav-link{color:var(--muted);text-decoration:none;font-size:14px}
+    .cta{background:var(--accent);color:white;padding:10px 14px;border-radius:8px;text-decoration:none;font-weight:700}
 
-    header{
-      background:var(--card);
-      border-bottom:1px solid var(--border);
-      position:sticky;
-      top:0;
-      z-index:50;
-      box-shadow: 0 1px 0 rgba(0,0,0,0.02);
-    }
-    .header-inner{
-      max-width:var(--maxw);
-      margin:0 auto;
-      padding:14px 20px;
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-    }
-    .brand{
-      font-weight:800;
-      letter-spacing:1px;
-      color:#111;
-      text-decoration:none;
-      font-size:20px;
-    }
-    .secure{
-      display:flex;
-      gap:8px;
-      align-items:center;
-      color:var(--muted);
-      font-size:13px;
-    }
+    .hero{max-width:1100px;margin:40px auto;padding:28px;background:linear-gradient(180deg, rgba(255,255,255,0.03), rgba(255,255,255,0.02));border-radius:12px;border:1px solid rgba(255,255,255,0.03);display:grid;grid-template-columns:1fr 360px;gap:24px}
+    .hero-title{font-size:36px;margin:0 0 12px 0}
+    .hero-desc{color:var(--muted);margin-bottom:18px}
+    .actions{display:flex;gap:12px}
+    .card{background:var(--card);padding:14px;border-radius:10px;border:1px solid var(--glass)}
 
-    .container{
-      max-width:var(--maxw);
-      margin:18px auto;
-      padding:0 20px;
-      display:grid;
-      grid-template-columns:1fr 380px;
-      gap:18px;
-      align-items:start;
-    }
-    @media (max-width:980px){
-      .container{grid-template-columns:1fr; padding-bottom:40px}
-      .summary{position:static; width:100%}
-    }
+    .features{display:flex;gap:14px;flex-wrap:wrap;margin-top:22px}
+    .feature{flex:1;min-width:200px;background:rgba(255,255,255,0.02);padding:12px;border-radius:8px}
+    .footer{max-width:1100px;margin:36px auto;color:var(--muted);padding:18px 36px}
 
-    /* LEFT */
-    .content .section{
-      background:var(--card);
-      border-radius:var(--radius);
-      padding:18px;
-      box-shadow:var(--shadow);
-      margin-bottom:14px;
-      border:1px solid var(--border);
-    }
+    a{color:inherit}
+    code{background:rgba(255,255,255,0.03);padding:4px 6px;border-radius:6px;font-size:13px}
 
-    .fomo{
-      display:flex;
-      gap:12px;
-      align-items:center;
-      background:linear-gradient(90deg,#fff6f8,#fff);
-      color:var(--accent);
-      padding:12px 16px;
-      border-radius:6px;
-      font-weight:600;
-      font-size:14px;
-    }
-    .count{
-      display:inline-block;
-      min-width:72px;
-      text-align:center;
-      background:#fff;
-      color:#000;
-      padding:6px 8px;
-      border-radius:4px;
-      font-weight:800;
-      box-shadow:0 1px 0 rgba(0,0,0,.04);
-    }
-
-    h2.section-title{
-      font-size:15px;
-      margin:0 0 12px 0;
-      letter-spacing:0.6px;
-      text-transform:uppercase;
-      color:#222;
-    }
-
-    /* address form */
-    .form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
-    .full{grid-column:1/-1}
-    label{font-size:12px;color:var(--muted);display:block;margin-bottom:6px;font-weight:600}
-    input,select,textarea{
-      width:100%;
-      padding:10px 12px;
-      border:1px solid var(--border);
-      border-radius:6px;
-      background:#fff;
-      font-size:14px;
-      outline:none;
-    }
-    .note{font-size:12px;color:var(--muted);margin-top:6px}
-
-    /* shipping options */
-    .options{display:flex;flex-direction:column;gap:10px}
-    .option{
-      display:flex;gap:12px;align-items:flex-start;padding:12px;border-radius:8px;border:1px solid var(--border);
-      cursor:pointer;background:transparent;
-    }
-    .option.selected{border-color:#222;background:#fafafa}
-    .option input{margin-top:4px}
-
-    .option .meta{flex:1}
-    .option .price{font-weight:700;color:#111}
-
-    /* cart items */
-    .cart-list{display:flex;flex-direction:column;gap:14px}
-    .cart-item{display:flex;gap:12px;align-items:center;border-bottom:1px dashed var(--border);padding-bottom:12px}
-    .thumb{width:78px;height:96px;background:#eee;border-radius:6px;flex-shrink:0;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:12px}
-    .item-info{flex:1}
-    .item-name{font-weight:700;font-size:14px;margin-bottom:6px}
-    .item-meta{font-size:13px;color:var(--muted)}
-    .item-row{display:flex;justify-content:space-between;align-items:center;margin-top:8px}
-    .price{font-weight:800}
-
-    /* RIGHT summary */
-    .summary{
-      position:sticky;
-      top:84px;
-    }
-    .summary .card{background:var(--card);padding:16px;border-radius:8px;border:1px solid var(--border);box-shadow:var(--shadow)}
-    .coupon-row{display:flex;gap:8px;margin-top:12px}
-    .coupon-row input{flex:1}
-    .btn{background:#111;color:#fff;padding:10px 12px;border-radius:6px;border:none;cursor:pointer;font-weight:700}
-    .btn.ghost{background:transparent;color:#111;border:1px solid var(--border)}
-    .summary .row{display:flex;justify-content:space-between;margin:10px 0;font-size:14px}
-    .total{font-size:20px;font-weight:900;margin-top:8px}
-    .place{width:100%;background:var(--accent);border:none;color:#fff;padding:14px;border-radius:8px;font-weight:900;margin-top:16px;cursor:pointer}
-
-    .guarantees{display:flex;gap:8px;justify-content:space-between;margin-top:14px;font-size:13px;color:var(--muted)}
-    .guar{display:flex;gap:8px;align-items:center}
-    .pill{font-size:12px;padding:6px 8px;border-radius:999px;background:#fff;border:1px solid var(--border)}
+    @media(max-width:900px){.hero{grid-template-columns:1fr;}.hero-title{font-size:28px}}
   </style>
 </head>
 <body>
   <header>
-    <div class="header-inner">
-      <a class="brand" href="#">LUVORA</a>
-      <div class="secure">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style="opacity:.9"><path d="M6 11v-2a6 6 0 0 1 12 0v2" stroke="#8a8a8a" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"></path><rect x="3" y="11" width="18" height="10" rx="2" stroke="#8a8a8a" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"></rect></svg>
-        Secure checkout
-      </div>
-    </div>
+    <a class="brand" href="/">LUVORA</a>
+    <nav>
+      <a class="nav-link" href="/explore">Explore</a>
+      <a class="nav-link" href="/features">Features</a>
+      <a class="nav-link" href="/docs">Docs</a>
+      <a class="nav-link" href="/login">Sign in</a>
+      <a class="cta" href="/signup">Get started</a>
+    </nav>
   </header>
 
-  <main class="container">
-    <div class="content">
-      <div class="section">
-        <div class="fomo">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M12 7v5l3 3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"></path><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.2"></circle></svg>
-          <div>Hurry — low stock! Place order within <span class="count" id="countdown">15:00</span> to reserve items</div>
-        </div>
+  <main class="hero" role="main">
+    <section>
+      <h1 class="hero-title">A modern platform for code collaboration — LUVORA</h1>
+      <p class="hero-desc">Create repositories, open issues, review code, and collaborate in real time. LUVORA is a lightweight GitHub-like platform you can self-host and extend.</p>
+
+      <div class="actions">
+        <a class="cta" href="/app">Open LUVORA</a>
+        <a class="nav-link" href="https://github.com/fvktheops/Shopper" target="_blank">View this project on GitHub</a>
       </div>
 
-      <section class="section" aria-labelledby="shipping-heading">
-        <h2 id="shipping-heading" class="section-title">Shipping Address</h2>
-
-        <form id="addressForm" class="form-grid" autocomplete="on">
-          <div>
-            <label for="first">First name</label>
-            <input id="first" name="first" required placeholder="Jane" />
-          </div>
-          <div>
-            <label for="last">Last name</label>
-            <input id="last" name="last" required placeholder="Doe" />
-          </div>
-          <div class="full">
-            <label for="address">Address</label>
-            <input id="address" name="address" required placeholder="Street address, P.O. box, company name, c/o" />
-          </div>
-          <div>
-            <label for="city">City</label>
-            <input id="city" name="city" required placeholder="New York" />
-          </div>
-          <div>
-            <label for="state">State / Province</label>
-            <input id="state" name="state" required placeholder="NY" />
-          </div>
-          <div>
-            <label for="postal">Zip / Postal</label>
-            <input id="postal" name="postal" required placeholder="10001" />
-          </div>
-          <div>
-            <label for="country">Country</label>
-            <select id="country" name="country">
-              <option>United States</option>
-              <option>United Kingdom</option>
-              <option>Canada</option>
-              <option>Australia</option>
-            </select>
-          </div>
-          <div>
-            <label for="phone">Phone</label>
-            <input id="phone" name="phone" placeholder="+1 (555) 000-0000" />
-          </div>
-          <div class="full note">We’ll only use your phone for delivery updates.</div>
-        </form>
-      </section>
-
-      <section class="section">
-        <h2 class="section-title">Shipping Method</h2>
-        <div class="options" id="shippingOptions">
-          <label class="option selected">
-            <input type="radio" name="shipping" value="standard" checked />
-            <div class="meta">
-              <div style="font-weight:800">Standard Shipping</div>
-              <div class="note">3-7 business days</div>
-            </div>
-            <div class="price" data-price="3.99">$3.99</div>
-          </label>
-
-          <label class="option">
-            <input type="radio" name="shipping" value="express" />
-            <div class="meta">
-              <div style="font-weight:800">Express Shipping</div>
-              <div class="note">1-3 business days</div>
-            </div>
-            <div class="price" data-price="9.99">$9.99</div>
-          </label>
+      <div class="features">
+        <div class="feature">
+          <strong>Repositories</strong>
+          <div style="color:var(--muted);margin-top:8px">Create and host Git repositories (HTTP & SSH support planned). Full commit history and browser-based code view.</div>
         </div>
-      </section>
-
-      <section class="section">
-        <h2 class="section-title">Payment</h2>
-        <div style="display:flex;gap:10px;align-items:center;margin-bottom:8px">
-          <div class="pill">Credit / Debit</div>
-          <div class="pill">PayPal</div>
-          <div class="pill">Apple Pay</div>
+        <div class="feature">
+          <strong>Issues & PRs</strong>
+          <div style="color:var(--muted);margin-top:8px">Track bugs, feature requests, and collaborate on pull requests with inline comments and reviews.</div>
         </div>
-
-        <div style="margin-top:8px">
-          <label for="cardName">Name on card</label>
-          <input id="cardName" placeholder="Jane Doe" />
-          <div style="display:grid;grid-template-columns:2fr 1fr;gap:10px;margin-top:10px">
-            <input placeholder="Card number" />
-            <input placeholder="MM / YY" />
-          </div>
+        <div class="feature">
+          <strong>Real-time</strong>
+          <div style="color:var(--muted);margin-top:8px">Live notifications and comment streaming using WebSockets (Socket.io + Redis adapter).</div>
         </div>
-      </section>
-
-      <section class="section" aria-labelledby="items-heading">
-        <h2 id="items-heading" class="section-title">Order Items</h2>
-
-        <div class="cart-list" id="cartList">
-          <!-- Cart items inserted by JS -->
+        <div class="feature">
+          <strong>Extensible</strong>
+          <div style="color:var(--muted);margin-top:8px">Add CI, webhooks, and integrations. Designed for self-hosting and cloud deployment behind Cloudflare.</div>
         </div>
-      </section>
-    </div>
+      </div>
+    </section>
 
-    <aside class="summary">
-      <div class="card">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <div style="font-weight:800">Order Summary</div>
-          <div style="font-size:13px;color:var(--muted)">Items: <span id="itemsCount">0</span></div>
-        </div>
+    <aside class="card">
+      <h3 style="margin-top:0">Quick start</h3>
+      <ol style="color:var(--muted);padding-left:18px">
+        <li>Sign up and create an account</li>
+        <li>Create your first repository</li>
+        <li>Clone using the provided clone URL</li>
+        <li>Open issues and collaborate</li>
+      </ol>
 
-        <div style="margin-top:12px">
-          <div class="row"><div>Subtotal</div><div id="subTotal">$0.00</div></div>
-          <div class="row"><div>Shipping</div><div id="shippingCost">$3.99</div></div>
-          <div class="row"><div>Discount</div><div id="discountVal" style="color:var(--accent)">-$0.00</div></div>
-          <div class="row"><div>Estimated tax</div><div id="taxVal">$0.00</div></div>
-          <div class="total">Total <strong id="grandTotal" style="float:right">$0.00</strong></div>
-
-          <div class="coupon-row">
-            <input id="couponCode" placeholder="Enter coupon (try LUVORA15)" />
-            <button class="btn" id="applyCoupon">Apply</button>
-          </div>
-
-          <button class="place" id="placeOrder">Place Order</button>
-
-          <div class="guarantees">
-            <div class="guar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2l3 6 6 .5-4.5 3 1.5 6L12 16 6 18.5l1.5-6L3 9.5 9 9 12 2z" fill="#ffd54a"></path></svg> 30-day returns</div>
-            <div class="guar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 2L2 7l10 5 10-5-10-5z" fill="#c7f0d2"></path></svg> Secure payments</div>
-            <div class="guar"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M12 12a5 5 0 100-10 5 5 0 000 10z" fill="#e8f2ff"></path></svg> 24/7 support</div>
-          </div>
-        </div>
+      <div style="margin-top:12px">
+        <div style="font-size:13px;color:var(--muted)">Run locally</div>
+        <code style="display:block;margin-top:8px">docker compose up --build</code>
       </div>
     </aside>
   </main>
 
-  <script>
-    // Demo data (mock cart) — feel free to customize
-    const cartData = [
-      { id:1, name:"Ruffle Sleeve Dress", color:"Pink", size:"S", price: 29.99, qty:1, img:null },
-      { id:2, name:"Casual Tee", color:"White", size:"M", price: 13.00, qty:1, img:null }
-    ];
-
-    // Helpers
-    const fmt = v => '$' + v.toFixed(2);
-
-    // Populate cart
-    function renderCart(){
-      const list = document.getElementById('cartList');
-      list.innerHTML = '';
-      let subtotal = 0;
-      cartData.forEach(item=>{
-        subtotal += item.price * item.qty;
-        const el = document.createElement('div');
-        el.className = 'cart-item';
-        el.innerHTML = `
-          <div class="thumb">${item.img ? ('<img src="'+item.img+'" style="width:100%;height:100%;object-fit:cover;border-radius:6px">') : 'Image'}</div>
-          <div class="item-info">
-            <div class="item-name">${item.name}</div>
-            <div class="item-meta">${item.color} • Size ${item.size}</div>
-            <div class="item-row">
-              <div style="font-size:14px;color:var(--muted)">Qty: ${item.qty}</div>
-              <div class="price">${fmt(item.price)}</div>
-            </div>
-          </div>
-        `;
-        list.appendChild(el);
-      });
-
-      document.getElementById('subTotal').textContent = fmt(subtotal);
-      document.getElementById('itemsCount').textContent = cartData.length;
-      updateTotals();
-    }
-
-    // Shipping selection
-    function readShipping(){
-      const sel = document.querySelector('input[name="shipping"]:checked');
-      return parseFloat(sel.closest('.option').querySelector('.price').dataset.price || 0);
-    }
-
-    function updateTotals(){
-      const subtotal = parseFloat(document.getElementById('subTotal').textContent.replace('$','')) || 0;
-      const shipping = readShipping();
-      const couponVal = parseFloat(document.getElementById('discountVal').dataset.value || 0) || 0;
-      const tax = Math.round((subtotal - couponVal) * 0.07 * 100)/100; // mock 7% tax
-      const total = Math.round((subtotal - couponVal + shipping + tax) * 100)/100;
-      document.getElementById('shippingCost').textContent = fmt(shipping);
-      document.getElementById('taxVal').textContent = fmt(tax);
-      document.getElementById('discountVal').textContent = (couponVal > 0) ? '-'+fmt(couponVal) : '-$0.00';
-      document.getElementById('discountVal').dataset.value = couponVal;
-      document.getElementById('grandTotal').textContent = fmt(total);
-    }
-
-    // Shipping option clicks
-    document.getElementById('shippingOptions').addEventListener('click', (e)=>{
-      const opt = e.target.closest('.option');
-      if(!opt) return;
-      document.querySelectorAll('.option').forEach(o=>o.classList.remove('selected'));
-      opt.classList.add('selected');
-      opt.querySelector('input').checked = true;
-      updateTotals();
-    });
-
-    // Coupon logic
-    document.getElementById('applyCoupon').addEventListener('click', ()=>{
-      const code = document.getElementById('couponCode').value.trim().toUpperCase();
-      const subtotal = parseFloat(document.getElementById('subTotal').textContent.replace('$','')) || 0;
-      if(code === 'LUVORA15'){
-        const discount = Math.round(subtotal * 0.15 * 100)/100;
-        document.getElementById('discountVal').dataset.value = discount;
-        updateTotals();
-        alert('15% discount applied!');
-      } else {
-        document.getElementById('discountVal').dataset.value = 0;
-        updateTotals();
-        alert('Invalid coupon. Try LUVORA15 for demo.');
-      }
-    });
-
-    // Place order stub
-    document.getElementById('placeOrder').addEventListener('click', ()=>{
-      // Very simple validation
-      const first = document.getElementById('first').value.trim();
-      const last = document.getElementById('last').value.trim();
-      if(!first || !last){ alert('Please enter your name and shipping address.'); return; }
-      const total = document.getElementById('grandTotal').textContent;
-      alert('Order placed! Total: ' + total + '\n(Checkout demo — no real payment processed)');
-    });
-
-    // Countdown timer for FOMO banner
-    let duration = 15 * 60; // 15 minutes
-    function tick(){
-      const el = document.getElementById('countdown');
-      const mm = String(Math.floor(duration/60)).padStart(2,'0');
-      const ss = String(duration % 60).padStart(2,'0');
-      el.textContent = mm + ':' + ss;
-      if(duration > 0) duration--;
-      else {
-        // reset for demo or you could disable checkout
-        duration = 15 * 60;
-      }
-    }
-    setInterval(tick, 1000);
-    tick();
-
-    // init
-    renderCart();
-    // update totals on initial load (shipping defaults to first)
-    document.querySelectorAll('input[name="shipping"]').forEach(i=>i.addEventListener('change', updateTotals));
-  </script>
+  <footer class="footer">
+    <div style="max-width:1100px;margin:0 auto;display:flex;justify-content:space-between;align-items:center;gap:12px">
+      <div>© <strong>LUVORA</strong> — Built from the Shopper scaffold.</div>
+      <div style="color:var(--muted)">Docs • Support • Privacy</div>
+    </div>
+  </footer>
 </body>
 </html>
