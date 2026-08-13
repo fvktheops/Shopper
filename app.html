@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>App — LUVORA</title>
+  <meta name="description" content="LUVORA app dashboard" />
+  <style>
+    :root{--maxw:1100px;--muted:#98a0b3;--card:#0f1724}
+    body{margin:0;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial;color:#e6eef8;background:linear-gradient(180deg,#061029 0%,#081226 60%)}
+    header{padding:12px 16px;border-bottom:1px solid rgba(255,255,255,0.03)}
+    .container{max-width:var(--maxw);margin:28px auto;padding:20px}
+    .card{background:var(--card);padding:16px;border-radius:10px;border:1px solid rgba(255,255,255,0.03)}
+    .muted{color:var(--muted)}
+    .repo-list{display:flex;flex-direction:column;gap:10px}
+    .repo{padding:12px;border-radius:8px;background:rgba(255,255,255,0.02)}
+    input,button{padding:8px;border-radius:8px}
+    .row{display:flex;gap:8px}
+  </style>
+</head>
+<body>
+  <header>
+    <div style="max-width:var(--maxw);margin:0 auto;display:flex;justify-content:space-between;align-items:center"><a href="/">LUVORA</a><nav style="color:var(--muted)"><a href="/explore">Explore</a></nav></div>
+  </header>
+
+  <main class="container">
+    <div class="card">
+      <h2>Your repositories</h2>
+      <p class="muted">Create and manage your repositories from here.</p>
+
+      <div style="margin-top:12px" class="row">
+        <input id="repoName" placeholder="repository-name" />
+        <button id="createBtn">Create</button>
+      </div>
+
+      <div id="repos" class="repo-list" style="margin-top:14px"></div>
+    </div>
+  </main>
+
+  <footer style="text-align:center;color:var(--muted);padding:18px">© LUVORA</footer>
+
+  <script>
+    async function loadRepos(){
+      try{
+        const res = await fetch('/api/repos');
+        const data = await res.json();
+        const el = document.getElementById('repos');
+        if(!Array.isArray(data)) return el.innerHTML = '<div class="muted">No repositories</div>';
+        el.innerHTML = data.map(r => `<div class="repo"><strong>${r.owner}/${r.name}</strong><div class=\"muted\">${r.visibility}</div></div>`).join('');
+      }catch(e){ console.error(e); document.getElementById('repos').innerHTML = '<div class="muted">Failed to load</div>'; }
+    }
+    document.getElementById('createBtn').addEventListener('click', async ()=>{
+      const name = document.getElementById('repoName').value.trim();
+      if(!name) return alert('Enter a name');
+      try{
+        const res = await fetch('/api/repos', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body:JSON.stringify({ name }) });
+        const data = await res.json();
+        if(!res.ok) throw new Error(data.error || 'Failed');
+        alert('Repository created');
+        document.getElementById('repoName').value = '';
+        loadRepos();
+      }catch(e){ alert(e.message); }
+    });
+    loadRepos();
+  </script>
+</body>
+</html>
