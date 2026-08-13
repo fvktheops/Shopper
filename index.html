@@ -1,34 +1,106 @@
+"""
+LUVORA ML-focused front-end & tracking dashboard (single page) - index.html
+This replaces previous multi-page SPA with a machine-learning-first dashboard and provides
+instructions and a tracker snippet that site owners can embed (with consent) to send non-PII
+telemetry to this self-hosted service for ongoing pattern learning.
+"""
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>LUVORA — Demo SPA with ML Panel</title>
+  <title>LUVORA — ML Dashboard</title>
+  <meta name="description" content="LUVORA ML dashboard — self-hosted telemetry & pattern learning (open-source).">
   <style>
-    body{font-family:system-ui,Segoe UI,Roboto,Arial;background:#071025;color:#e6eef8;margin:0;padding:20px}
-    .card{background:#0f1724;padding:16px;border-radius:8px;border:1px solid rgba(255,255,255,0.03)}
-    .btn-cta{background:#ff4d72;color:white;border:0;padding:8px 12px;border-radius:8px}
+    :root{--bg:#071025;--panel:#0f1724;--muted:#9aa6bf;--text:#e6eef8;--accent:#ff4d72}
+    body{margin:0;font-family:Inter,system-ui,Segoe UI,Roboto,Arial;background:var(--bg);color:var(--text)}
+    header{padding:12px 18px;border-bottom:1px solid rgba(255,255,255,0.03);display:flex;align-items:center;justify-content:space-between}
+    .brand{display:flex;gap:12px;align-items:center}
+    main{max-width:1100px;margin:24px auto;padding:0 18px}
+    .card{background:var(--panel);padding:16px;border-radius:10px;border:1px solid rgba(255,255,255,0.03);box-shadow:0 6px 20px rgba(0,0,0,0.6)}
+    .btn{background:var(--accent);border:0;color:white;padding:8px 12px;border-radius:8px}
+    textarea{width:100%;min-height:120px;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.03);background:transparent;color:var(--text)}
+    .muted{color:var(--muted)}
+    .grid{display:grid;grid-template-columns:2fr 1fr;gap:16px}
+    @media(max-width:880px){.grid{grid-template-columns:1fr}}
+    .small{font-size:0.9rem}
+    pre{white-space:pre-wrap;font-size:0.85rem}
   </style>
 </head>
 <body>
-  <header style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
-    <h1 style="margin:0">LUVORA (Demo)</h1>
-    <nav>
-      <a href="/" style="color:#9aa6bf;margin-right:12px">Home</a>
-      <a href="/app" style="color:#9aa6bf">Dashboard</a>
-    </nav>
+  <header>
+    <div class="brand"><strong>LUVORA ML</strong><div class="muted small">Self-hosted telemetry & learning</div></div>
+    <nav class="muted small">Local mode • No external paid services</nav>
   </header>
 
   <main>
-    <section class="card" style="max-width:900px;margin:0 auto">
-      <h2>ML Suggestions Panel</h2>
-      <p class="muted-small">Use the panel below to run semantic retrieval against indexed repository files.</p>
-      <div id="ml-panel-root" style="margin-top:12px"></div>
+    <section class="card grid">
+      <div>
+        <h2>Live Insights</h2>
+        <p class="muted small">This dashboard shows live pattern detections and cluster updates from incoming web telemetry.</p>
+        <div id="insights" style="margin-top:12px"></div>
+
+        <h3 style="margin-top:18px">Query suggestions (semantic retrieval)</h3>
+        <textarea id="query" placeholder="Type a query or paste a snippet to search indexed pages..."></textarea>
+        <div style="margin-top:8px"><button class="btn" id="btnSuggest">Suggest</button></div>
+        <div id="suggestResults" style="margin-top:12px"></div>
+      </div>
+
+      <aside>
+        <div class="muted small" style="margin-bottom:8px">Tracker snippet (embed on your site — require user consent)</div>
+        <div class="card small" style="padding:10px">
+          <pre id="snippet">&lt;script src="/static/js/tracker.js"&gt;&lt;/script&gt;
+&lt;script&gt;
+// call sendTelemetry() only with user consent
+// sendTelemetry({path:location.pathname,title:document.title});
+&lt;/script&gt;</pre>
+        </div>
+        <div style="margin-top:12px">
+          <button id="btnSeed" class="btn">Seed local repo</button>
+        </div>
+        <hr style="margin:12px 0;border:none;border-top:1px solid rgba(255,255,255,0.03)">
+        <div class="muted small">Realtime connection</div>
+        <div id="wsStatus" class="muted small">Connecting...</div>
+      </aside>
+    </section>
+
+    <section class="card" style="margin-top:16px">
+      <h3>Notes & Ethics</h3>
+      <p class="muted small">This platform collects non‑PII telemetry only. Always obtain informed consent from users before tracking, and comply with applicable laws (GDPR, CCPA). Administrators are responsible for data minimization and retention policies.</p>
     </section>
   </main>
 
-  <!-- Include ML panel script -->
   <script src="/static/js/ml-panel.js"></script>
-  <script>if(window.mountMlPanel){mountMlPanel(document.getElementById('ml-panel-root'))}</script>
+  <script>
+    // Mount ML panel (already included) and wire UI actions
+    mountMlPanel(document.getElementById('ml-panel-root') || document.getElementById('ml-panel-root'));
+
+    // Wire suggest button to ML suggest (inlined for quick dashboard)
+    document.getElementById('btnSuggest').addEventListener('click', async ()=>{
+      const q = document.getElementById('query').value.trim(); if(!q) return alert('Enter a query');
+      document.getElementById('suggestResults').innerHTML = 'Loading...';
+      const res = await fetch('/ml/suggest', {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({query:q,top_k:6})});
+      const data = await res.json();
+      if(!res.ok) { document.getElementById('suggestResults').innerText = JSON.stringify(data); return; }
+      const el = document.getElementById('suggestResults'); el.innerHTML=''; data.results.forEach(r=>{
+        const d = document.createElement('div'); d.style.padding='8px'; d.style.borderBottom='1px solid rgba(255,255,255,0.03)'; d.innerHTML = `<strong>${r.meta.path}</strong><div class=\"muted\">score: ${r.score.toFixed(3)}</div>`; el.appendChild(d);
+      });
+    });
+
+    // Seed button triggers server-side seed if available
+    document.getElementById('btnSeed').addEventListener('click', async ()=>{
+      if(!confirm('Start server-side seeding of repositories? This will scan configured paths on the server.')) return;
+      try{ const r = await fetch('/ml/seed', {method:'POST'}); const j = await r.json(); alert('Seed started: '+JSON.stringify(j)); }catch(e){ alert('Seed failed: '+e.message); }
+    });
+
+    // WebSocket for live insights
+    const ws = new WebSocket((location.protocol==='https:'? 'wss://' : 'ws://') + location.host + '/ws');
+    const status = document.getElementById('wsStatus');
+    ws.onopen = ()=> status.innerText = 'Connected';
+    ws.onclose = ()=> status.innerText = 'Disconnected';
+    ws.onmessage = (ev)=>{
+      try{ const d = JSON.parse(ev.data); const insights = document.getElementById('insights'); const el = document.createElement('div'); el.className='muted small'; el.innerText = JSON.stringify(d); insights.prepend(el); }catch(e){ console.error(e); }
+    };
+  </script>
 </body>
 </html>

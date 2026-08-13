@@ -1,3 +1,4 @@
+# Update to docker-compose to include learner service
 version: '3.8'
 
 services:
@@ -15,7 +16,7 @@ services:
       - ML_DATA_DIR=/data
       - SENTENCE_MODEL=all-MiniLM-L6-v2
     ports:
-      - "8001:8000" # Exposed for local test: http://localhost:8001
+      - "8001:8000"
     depends_on:
       - redis
     volumes:
@@ -28,6 +29,20 @@ services:
       - REDIS_URL=redis://redis:6379/0
       - ML_DATA_DIR=/data
       - SENTENCE_MODEL=all-MiniLM-L6-v2
+    depends_on:
+      - redis
+    volumes:
+      - ml-data:/data
+
+  ml-learner:
+    build: ./worker
+    restart: unless-stopped
+    command: ["python","learner.py"]
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - ML_DATA_DIR=/data
+      - SENTENCE_MODEL=all-MiniLM-L6-v2
+      - CLUSTER_SIM_THRESHOLD=0.75
     depends_on:
       - redis
     volumes:

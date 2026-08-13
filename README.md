@@ -1,37 +1,29 @@
-# LUVORA — ML & Real-time additions
+### Important notes & ethics
 
-This README documents the additional components added to provide a free, self-hosted ML and realtime support for LUVORA.
+This change converts the project to a focused machine-learning telemetry and pattern-learning system.
+Before deploying publicly:
+- Obtain user consent before tracking. Do not collect personal data (PII) without explicit, lawful basis.
+- Configure retention and deletion policies for user data.
+- Follow GDPR/CCPA and other applicable regulations.
 
-New components
-- ml-service/: FastAPI-based ML service (embeddings + retrieval). Run with docker compose in docker-compose.ml.yml.
-- worker/: Redis-backed worker to compute embeddings and update the on-disk index.
-- socket-proxy/: Node.js socket.io + Redis subscriber that forwards ml:events to connected browser clients.
-- infra/nginx/: Example nginx reverse-proxy configuration to route /ml/, /api/, and /socket.io/.
-- hooks/post-receive: template hook to enqueue embedding jobs on repo push.
-- ml-service/seed_repo.py: script to scan a repository directory and submit embedding jobs.
-- frontend/static/js/ml-panel.js: small client-side module to call /ml/suggest and show results.
-- scripts/seed_demo.sh: convenience script to seed a demo repo.
+How the new ML pipeline works (summary)
+- Frontend tracker (static/js/tracker.js) sends small, non-PII telemetry events to the server via POST /track.
+- ml-service enqueues events into Redis list 'tracking:events' and appends them to a JSONL file for persistence.
+- ml-learner worker consumes events, computes sentence-transformers embeddings, and performs online centroid-based clustering.
+- Centroids and counts are persisted (ml-data/centroids.npy, centroid_counts.json) and insights are published to Redis channel 'ml:insights' and broadcast over WebSocket (/ws).
+- The dashboard (index.html) subscribes to /ws and presents live insights and semantic retrieval via /ml/suggest.
 
-Quickstart (local dev)
-1. Start ML services (redis, ml-service, worker):
-   docker compose -f docker-compose.ml.yml up --build
-   - ml-service is available at: http://localhost:8001
-   - worker consumes jobs and updates ml-data/index.npz
-2. Start socket-proxy (optional):
-   - Build and run via docker (create a compose entry) or run locally with Node.js:
-     cd socket-proxy
-     npm install
-     node index.js
-   - socket-proxy listens on port 4002 by default and will emit events from Redis channel 'ml:events'.
-3. Seed a repository (optional):
-   ./scripts/seed_demo.sh /path/to/your/repo
+Run locally
+1. cp .env.ml.template .env
+2. docker compose -f docker-compose.ml.yml up --build
+3. Seed a repo (optional): ./scripts/seed_demo.sh /path/to/repo
+4. Visit dashboard (serve index.html via static server or proxy through nginx to the same origin as ml-service)
 
-Notes & next steps
-- The provided nginx config is a template. Update upstream hostnames and ports to match your deployment and consider using Cloudflare Tunnel for secure exposure.
-- The NPZ index is fine for small projects; switch to FAISS or other vector DB for larger datasets.
-- The socket-proxy relays job events to the browser. Integrate it into the SPA via a socket.io client to show real-time progress.
-- The post-receive hook uses git archive to extract files and posts them to the ml-service. Place it into your bare repo hooks directory and set ML_ENDPOINT if needed.
+Deploying safely
+- Use Cloudflare Tunnel for secure exposure; see infra/cloudflared/config.yml for example.
+- Protect /track, /ml/seed and seeding endpoints behind Auth for server-side operations.
 
-Security
-- No paid APIs or external services are required.
-- Do not commit secrets — use .env and Docker secrets for production.
+If you want, I can further:
+- Add a small admin UI to view clusters and download processed events.
+- Add retention & purging features.
+- Implement supervised reranker using logged clicks/feedback.
