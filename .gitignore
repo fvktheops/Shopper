@@ -1,0 +1,14 @@
+# Ignore local and generated files
+.ml-data/
+ml-data/
+.env
+.env.*
+__pycache__/
+node_modules/
+.DS_Store
+*.pyc
+*.pyo
+*.pyd
+*.sqlite3
+ml-service/__pycache__/
+worker/__pycache__/

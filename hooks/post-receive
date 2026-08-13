@@ -1,0 +1,45 @@
+#!/bin/bash
+# post-receive hook template for LUVORA
+# Place this script into bare-repo.git/hooks/post-receive and make executable (chmod +x)
+# It will extract the pushed changes and POST file contents to the ML service to enqueue embedding jobs.
+
+ML_ENDPOINT=${ML_ENDPOINT:-http://localhost:8001/ml/embeddings/job}
+TMP_BASE=${TMP_BASE:-/tmp/luvora-push}
+mkdir -p "$TMP_BASE"
+
+while read oldrev newrev refname; do
+  JOBID=$(date +%s)-$(echo "$newrev" | cut -c1-8)
+  WORKDIR="$TMP_BASE/repo-$JOBID"
+  mkdir -p "$WORKDIR"
+  echo "Processing push $refname -> $newrev into $WORKDIR"
+  # Export tree for the new rev
+  git archive "$newrev" | tar -x -C "$WORKDIR"
+
+  # Collect files (limit to common code extensions and size)
+  ITEMS=()
+  while IFS= read -r -d $'\0' file; do
+    REL=${file#"$WORKDIR"/}
+    # skip large files
+    if [ $(stat -c%s "$file") -gt 1048576 ]; then
+      echo "Skipping large file: $REL"
+      continue
+    fi
+    TEXT=$(sed -n '1,500p' "$file" | sed 's/"/\\"/g' | awk '{printf "%s\\n", $0}')
+    ITEMS+=("{\"path\": \"$REL\", \"text\": \"$TEXT\"}")
+  done < <(find "$WORKDIR" -type f \( -name "*.py" -o -name "*.js" -o -name "*.ts" -o -name "*.go" -o -name "*.java" -o -name "*.rs" -o -name "*.md" -o -name "*.txt" \) -print0)
+
+  if [ ${#ITEMS[@]} -eq 0 ]; then
+    echo "No files to index for job $JOBID"
+    rm -rf "$WORKDIR"
+    continue
+  fi
+
+  JSON_PAYLOAD=$(printf '%s\n' "${ITEMS[@]}" | jq -s '{items: map(fromjson)}')
+
+  # POST to ML endpoint
+  echo "Posting job $JOBID to $ML_ENDPOINT"
+  curl -s -X POST "$ML_ENDPOINT" -H "Content-Type: application/json" -d "$JSON_PAYLOAD"
+
+  # cleanup
+  rm -rf "$WORKDIR"
+done

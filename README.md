@@ -1,34 +1,37 @@
-# LUVORA (Shopper)
+# LUVORA — ML & Real-time additions
 
-This repository is a scaffold for LUVORA — a GitHub-like platform prototype. It includes a Node.js + Express backend, a React + Vite frontend, and Docker Compose to run PostgreSQL and Redis for realtime features.
+This README documents the additional components added to provide a free, self-hosted ML and realtime support for LUVORA.
 
-Features in this initial scaffold
-- Backend API (Express) with endpoints to create and list repositories (real git integration using simple-git)
-- Frontend (React + Vite) with a minimal UI to create repositories and view the list
-- Docker Compose configuration for local development (postgres, redis, backend, frontend)
-- Socket.io present in the backend for future realtime features
+New components
+- ml-service/: FastAPI-based ML service (embeddings + retrieval). Run with docker compose in docker-compose.ml.yml.
+- worker/: Redis-backed worker to compute embeddings and update the on-disk index.
+- socket-proxy/: Node.js socket.io + Redis subscriber that forwards ml:events to connected browser clients.
+- infra/nginx/: Example nginx reverse-proxy configuration to route /ml/, /api/, and /socket.io/.
+- hooks/post-receive: template hook to enqueue embedding jobs on repo push.
+- ml-service/seed_repo.py: script to scan a repository directory and submit embedding jobs.
+- frontend/static/js/ml-panel.js: small client-side module to call /ml/suggest and show results.
+- scripts/seed_demo.sh: convenience script to seed a demo repo.
 
-Next steps
-- Implement authentication (JWT)
-- Add database models and migrations (Postgres)
-- Add issues, PRs, code viewer, and realtime notifications using Socket.io + Redis adapter
-- Add CI, tests, and deployment workflows
+Quickstart (local dev)
+1. Start ML services (redis, ml-service, worker):
+   docker compose -f docker-compose.ml.yml up --build
+   - ml-service is available at: http://localhost:8001
+   - worker consumes jobs and updates ml-data/index.npz
+2. Start socket-proxy (optional):
+   - Build and run via docker (create a compose entry) or run locally with Node.js:
+     cd socket-proxy
+     npm install
+     node index.js
+   - socket-proxy listens on port 4002 by default and will emit events from Redis channel 'ml:events'.
+3. Seed a repository (optional):
+   ./scripts/seed_demo.sh /path/to/your/repo
 
-Getting started (local development)
+Notes & next steps
+- The provided nginx config is a template. Update upstream hostnames and ports to match your deployment and consider using Cloudflare Tunnel for secure exposure.
+- The NPZ index is fine for small projects; switch to FAISS or other vector DB for larger datasets.
+- The socket-proxy relays job events to the browser. Integrate it into the SPA via a socket.io client to show real-time progress.
+- The post-receive hook uses git archive to extract files and posts them to the ml-service. Place it into your bare repo hooks directory and set ML_ENDPOINT if needed.
 
-Prerequisites: Git, Docker, Docker Compose
-
-1. Clone the repo
-   git clone https://github.com/fvktheops/Shopper.git
-   cd Shopper
-
-2. Start services
-   docker compose up --build
-
-3. Backend API available at: http://localhost:4000
-   Frontend available at: http://localhost:5173
-
-Notes
-- Repositories created by the API will be stored under ./data/repos on the host (persisted)
-- This scaffold uses simple-git and therefore requires the Git binary to be available inside the backend container (the Dockerfile installs git)
-
+Security
+- No paid APIs or external services are required.
+- Do not commit secrets — use .env and Docker secrets for production.
