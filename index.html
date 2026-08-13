@@ -19,8 +19,14 @@
     html,body{height:100%}
     body{margin:0;font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,Arial;color:#e6eef8;background:linear-gradient(180deg,#061029 0%,#081226 60%);-webkit-font-smoothing:antialiased}
 
-    /* Header placeholder replaced by header.html */
-    #site-header{position:sticky;top:0;z-index:40}
+    /* Header */
+    header{position:sticky;top:0;z-index:40;backdrop-filter:blur(6px);background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));border-bottom:1px solid rgba(255,255,255,0.03);padding:10px 16px}
+    .header-inner{max-width:var(--maxw);margin:0 auto;display:flex;align-items:center;justify-content:space-between;gap:12px}
+    .brand{font-weight:800;font-size:20px;color:white;text-decoration:none}
+    .nav{display:flex;gap:14px;align-items:center}
+    .nav-link{color:var(--muted);text-decoration:none;font-size:14px}
+    .cta{background:var(--accent);color:white;padding:8px 12px;border-radius:8px;text-decoration:none;font-weight:700}
+    #mobile-nav-toggle{display:none;background:transparent;border:1px solid rgba(255,255,255,0.04);padding:8px;border-radius:8px}
 
     .container{max-width:var(--maxw);margin:0 auto;padding:20px}
 
@@ -28,14 +34,12 @@
     .hero-title{font-size:36px;margin:0 0 12px 0;line-height:1.02}
     .hero-desc{color:var(--muted);margin-bottom:18px;max-width:60ch}
     .actions{display:flex;gap:12px}
-    .cta{background:var(--accent);color:white;padding:10px 14px;border-radius:8px;text-decoration:none;font-weight:700}
 
     .card{background:var(--card);padding:14px;border-radius:10px;border:1px solid var(--glass)}
     .features{display:flex;gap:14px;flex-wrap:wrap;margin-top:16px}
     .feature{flex:1;min-width:200px;background:rgba(255,255,255,0.02);padding:12px;border-radius:8px}
 
-    /* Footer placeholder */
-    #site-footer{margin-top:28px}
+    footer{background:transparent;padding:18px 0;border-top:1px solid rgba(255,255,255,0.02);margin-top:28px}
 
     /* Responsive */
     @media(max-width:1000px){
@@ -47,18 +51,31 @@
       .hero-title{font-size:24px}
       .hero-desc{max-width:none}
       .card{padding:12px}
+      .nav{display:none}
+      #mobile-nav-toggle{display:block}
     }
-
-    /* small helpers for loaded header/footer content */
-    .nav{display:flex;gap:14px;align-items:center}
-    .nav-link{color:var(--muted);text-decoration:none;font-size:14px}
-    .brand{font-weight:800;font-size:20px;color:white;text-decoration:none}
-
-    /* Mobile nav toggle handled by header.js */
   </style>
 </head>
 <body>
-  <div id="site-header">Loading header...</div>
+  <!-- Inlined header (no dynamic loading) -->
+  <header>
+    <div class="header-inner">
+      <a class="brand" href="/">LUVORA</a>
+
+      <nav id="main-nav" class="nav" aria-label="Main navigation">
+        <a class="nav-link" href="/explore">Explore</a>
+        <a class="nav-link" href="/features">Features</a>
+        <a class="nav-link" href="/docs">Docs</a>
+        <a class="nav-link" href="/login">Sign in</a>
+        <a class="cta" href="/signup">Get started</a>
+      </nav>
+
+      <!-- Mobile toggle -->
+      <button id="mobile-nav-toggle" aria-label="Toggle navigation">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"><path d="M3 7h18M3 12h18M3 17h18" stroke="#e6eef8" stroke-width="1.6" stroke-linecap="round"/></svg>
+      </button>
+    </div>
+  </header>
 
   <main class="container">
     <section class="hero" role="main">
@@ -68,7 +85,7 @@
 
         <div class="actions">
           <a class="cta" href="/app">Open LUVORA</a>
-          <a class="nav-link" href="https://github.com/fvktheops/Shopper" target="_blank">View project on GitHub</a>
+          <a class="nav-link" href="https://github.com/fvktheops/Shopper" target="_blank" rel="noopener">View project on GitHub</a>
         </div>
 
         <div class="features">
@@ -108,45 +125,43 @@
     </section>
   </main>
 
-  <div id="site-footer">Loading footer...</div>
+  <!-- Inlined footer -->
+  <footer>
+    <div style="max-width:var(--maxw);margin:0 auto;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:0 16px;color:var(--muted)">
+      <div>© <strong>LUVORA</strong> — Built from the Shopper scaffold.</div>
+      <div style="display:flex;gap:12px;align-items:center">
+        <a class="nav-link" href="/docs">Docs</a>
+        <a class="nav-link" href="/support">Support</a>
+        <a class="nav-link" href="/privacy">Privacy</a>
+      </div>
+    </div>
+  </footer>
 
   <script>
-    // Load header and footer HTML fragments and wire up mobile navigation
-    async function loadFragment(selector, url){
-      try{
-        const res = await fetch(url);
-        if(!res.ok) throw new Error('Failed to load');
-        const html = await res.text();
-        document.querySelector(selector).innerHTML = html;
-      }catch(e){
-        console.error(e);
-      }
-    }
-
-    // Load header and footer
-    loadFragment('#site-header', '/header.html').then(()=>{
-      // after header loads, wire mobile toggle if present
-      const btn = document.querySelector('#mobile-nav-toggle');
-      const nav = document.querySelector('#main-nav');
-      if(btn && nav){
-        btn.addEventListener('click', ()=>{
-          const open = nav.getAttribute('data-open') === 'true';
-          nav.setAttribute('data-open', open ? 'false' : 'true');
-          nav.style.display = open ? 'none' : 'flex';
-        });
-        // start hidden on small screens
+    // Mobile nav toggle behavior
+    (function(){
+      const btn = document.getElementById('mobile-nav-toggle');
+      const nav = document.getElementById('main-nav');
+      if(!btn || !nav) return;
+      function setNavDefault(){
         if(window.innerWidth < 760){ nav.style.display = 'none'; nav.setAttribute('data-open','false'); }
+        else { nav.style.display = 'flex'; nav.setAttribute('data-open','true'); }
       }
-    });
-    loadFragment('#site-footer', '/footer.html');
-
-    // Responsive tweak: close mobile nav on resize
-    window.addEventListener('resize', ()=>{
-      const nav = document.querySelector('#main-nav');
-      if(!nav) return;
-      if(window.innerWidth >= 760){ nav.style.display = 'flex'; nav.setAttribute('data-open','true'); }
-      else if(nav.getAttribute('data-open') !== 'true'){ nav.style.display = 'none'; }
-    });
+      setNavDefault();
+      btn.addEventListener('click', ()=>{
+        const open = nav.getAttribute('data-open') === 'true';
+        nav.setAttribute('data-open', open ? 'false' : 'true');
+        nav.style.display = open ? 'none' : 'flex';
+      });
+      window.addEventListener('resize', setNavDefault);
+      // close nav when clicking outside on mobile
+      document.addEventListener('click', (e)=>{
+        if(window.innerWidth >= 760) return;
+        if(!nav.contains(e.target) && !btn.contains(e.target)){
+          nav.style.display = 'none'; nav.setAttribute('data-open','false');
+        }
+      });
+    })();
   </script>
 </body>
 </html>
