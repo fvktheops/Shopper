@@ -31,6 +31,17 @@ services:
     volumes:
       - ml-data:/data
 
+  socket-proxy:
+    build: ./socket-proxy
+    restart: unless-stopped
+    environment:
+      - REDIS_URL=redis://redis:6379/0
+      - SOCKET_PORT=4002
+    ports:
+      - "4002:4002"
+    depends_on:
+      - redis
+
 volumes:
   redis-data:
   ml-data:
