@@ -1,5 +1,6 @@
 """
-ML service with FAISS-backed index, WebSocket event broadcast, admin authentication, and real-time /track endpoint.
+ML service with FAISS-backed index, WebSocket event broadcast, admin authentication, real-time /track endpoint,
+and Redis-backed rate limiting + tracker origin allowlist.
 """
 from fastapi import FastAPI, BackgroundTasks, HTTPException, WebSocket, WebSocketDisconnect, Depends, Request
 from pydantic import BaseModel
@@ -29,6 +30,12 @@ JWT_SECRET = os.environ.get('JWT_SECRET','change_this_secret')
 JWT_ALGO = 'HS256'
 ADMIN_USER = os.environ.get('ADMIN_USER','admin')
 ADMIN_PASS = os.environ.get('ADMIN_PASSWORD','password')
+# Rate limit defaults
+RATE_LIMIT_PER_MIN = int(os.environ.get('RATE_LIMIT_PER_MIN','60'))
+# Optional per-endpoint overrides: RATE_LIMIT_TRACK, RATE_LIMIT_SUGGEST
+TRACK_ALLOWLIST = os.environ.get('TRACK_ALLOWLIST','')  # comma-separated list of allowed origins
+TRACK_ALLOWLIST_SET = set([x.strip().lower() for x in TRACK_ALLOWLIST.split(',') if x.strip()])
+
 os.makedirs(DATA_DIR, exist_ok=True)
 
 r = redis.from_url(REDIS_URL, decode_responses=True)
@@ -193,6 +200,63 @@ async def get_current_user(request: Request):
         raise HTTPException(status_code=401, detail='Invalid token')
     return data.get('sub')
 
+# Rate limiting helpers (Redis-backed)
+
+def _get_client_ip(request: Request):
+    # Prefer X-Forwarded-For when behind proxy
+    xff = request.headers.get('X-Forwarded-For')
+    if xff:
+        return xff.split(',')[0].strip()
+    # Fallback to client host
+    if request.client:
+        return request.client.host
+    return 'unknown'
+
+def rate_limiter(endpoint_name: str):
+    limit_default = RATE_LIMIT_PER_MIN
+    # allow per-endpoint override
+    env_key = f'RATE_LIMIT_{endpoint_name.upper()}'
+    try:
+        limit = int(os.environ.get(env_key, limit_default))
+    except Exception:
+        limit = limit_default
+    async def _limiter(request: Request):
+        ip = _get_client_ip(request)
+        bucket = int(time.time() // 60)
+        key = f'rate:{endpoint_name}:{ip}:{bucket}'
+        try:
+            cnt = r.incr(key)
+            if cnt == 1:
+                r.expire(key, 65)
+            if cnt > limit:
+                raise HTTPException(status_code=429, detail='Too Many Requests')
+        except redis.exceptions.RedisError as e:
+            # On Redis error, fail open but log
+            print('Redis rate limiter error', e)
+        return None
+    return Depends(_limiter)
+
+# Tracker allowlist check
+
+def check_track_origin(request: Request):
+    # If allowlist is empty, accept any origin
+    if not TRACK_ALLOWLIST_SET:
+        return True
+    origin = request.headers.get('Origin','').lower()
+    referer = request.headers.get('Referer','').lower()
+    # If request includes Authorization Bearer token, allow
+    auth = request.headers.get('Authorization')
+    if auth and auth.startswith('Bearer '):
+        return True
+    # Check origin or referer against allowlist
+    if origin and origin in TRACK_ALLOWLIST_SET:
+        return True
+    if referer:
+        for allowed in TRACK_ALLOWLIST_SET:
+            if referer.startswith(allowed):
+                return True
+    return False
+
 # API models
 class FileItem(BaseModel):
     path: str
@@ -226,7 +290,7 @@ async def login(req: LoginRequest):
         return {'ok':True, 'token': token}
     raise HTTPException(status_code=401, detail='Invalid credentials')
 
-@app.post('/ml/embeddings/job')
+@app.post('/ml/embeddings/job', dependencies=[rate_limiter('embeddings_job')])
 async def enqueue_embedding(job: EmbeddingJob):
     job_id = job.job_id or str(uuid.uuid4())
     payload = {'job_id': job_id, 'items': [{'path':it.path} for it in job.items]}
@@ -241,7 +305,7 @@ async def enqueue_embedding(job: EmbeddingJob):
         raise HTTPException(status_code=500, detail=str(e))
     return {'ok':True, 'job_id':job_id}
 
-@app.post('/ml/embeddings/compute')
+@app.post('/ml/embeddings/compute', dependencies=[rate_limiter('embeddings_compute')])
 async def compute_embeddings_direct(job: EmbeddingJob):
     if not job.items:
         raise HTTPException(status_code=400, detail='no items')
@@ -289,7 +353,7 @@ async def compute_embeddings_direct(job: EmbeddingJob):
         f.write(json.dumps({'ts': time.time(), 'job_id': job.job_id or 'inline', 'type':'complete', 'added': len(job.items)}) + '\n')
     return {'ok':True, 'added': len(job.items)}
 
-@app.post('/ml/suggest')
+@app.post('/ml/suggest', dependencies=[rate_limiter('suggest')])
 async def suggest(req: SuggestRequest):
     # If FAISS present, use it
     if HAS_FAISS and FAISS_INDEX is not None:
@@ -334,7 +398,7 @@ async def suggest(req: SuggestRequest):
         return {'ok':True, 'results': results}
     return {'ok':True, 'results': []}
 
-@app.post('/ml/event/click')
+@app.post('/ml/event/click', dependencies=[rate_limiter('click')])
 async def log_click(payload: dict):
     try:
         entry = {'ts': time.time(), 'payload': payload}
@@ -346,11 +410,14 @@ async def log_click(payload: dict):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post('/track')
+@app.post('/track', dependencies=[rate_limiter('track')])
 async def track_event(request: Request):
     """Receive telemetry from tracker snippet (beacon or fetch) and enqueue for learner.
     Publishes an immediate insight for real-time dashboards.
     """
+    # Origin allowlist check
+    if not check_track_origin(request):
+        raise HTTPException(status_code=403, detail='Origin not allowed')
     try:
         data = await request.json()
     except Exception:
