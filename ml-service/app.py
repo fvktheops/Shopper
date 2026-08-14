@@ -1,11 +1,7 @@
 """
-ML service with FAISS-backed index and WebSocket event broadcast.
-- Loads sentence-transformers model for embeddings
-- Uses FAISS if available; falls back to NPZ if not
-- Provides endpoints: /ml/embeddings/job, /ml/embeddings/compute, /ml/suggest, /ml/index/status, /health
-- WebSocket `/ws` broadcasts Redis 'ml:events' messages to connected clients
+ML service with FAISS-backed index, WebSocket event broadcast, admin authentication, and real-time /track endpoint.
 """
-from fastapi import FastAPI, BackgroundTasks, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, BackgroundTasks, HTTPException, WebSocket, WebSocketDisconnect, Depends, Request
 from pydantic import BaseModel
 from sentence_transformers import SentenceTransformer
 import numpy as np
@@ -16,17 +12,28 @@ import redis
 import threading
 import asyncio
 from typing import List
+import time
+import subprocess
+import jwt
+from datetime import datetime, timedelta
 
 DATA_DIR = os.environ.get('ML_DATA_DIR', '/data')
 INDEX_FAISS = os.path.join(DATA_DIR, 'faiss_index.bin')
 INDEX_META = os.path.join(DATA_DIR, 'faiss_meta.json')
 INDEX_NPZ = os.path.join(DATA_DIR, 'index.npz')
+JOBS_LOG = os.path.join(DATA_DIR, 'jobs.jsonl')
+CLICK_LOG = os.path.join(DATA_DIR, 'clicks.jsonl')
+TRACK_LOG = os.path.join(DATA_DIR, 'tracking_events.jsonl')
 REDIS_URL = os.environ.get('REDIS_URL', 'redis://redis:6379/0')
+JWT_SECRET = os.environ.get('JWT_SECRET','change_this_secret')
+JWT_ALGO = 'HS256'
+ADMIN_USER = os.environ.get('ADMIN_USER','admin')
+ADMIN_PASS = os.environ.get('ADMIN_PASSWORD','password')
 os.makedirs(DATA_DIR, exist_ok=True)
 
 r = redis.from_url(REDIS_URL, decode_responses=True)
 
-app = FastAPI(title='LUVORA ML Service (FAISS-enabled)')
+app = FastAPI(title='LUVORA ML Service (FAISS-enabled, Admin, Real-time)')
 
 MODEL_NAME = os.environ.get('SENTENCE_MODEL','all-MiniLM-L6-v2')
 model = SentenceTransformer(MODEL_NAME)
@@ -99,10 +106,13 @@ def load_index():
                         idx.add(emb_norm.astype('float32'))
                         FAISS_INDEX = idx
                         # write faiss index & meta
-                        faiss.write_index(FAISS_INDEX, INDEX_FAISS)
-                        with open(INDEX_META,'w') as f:
-                            json.dump(META, f)
-                        print('Migrated NPZ to FAISS index')
+                        try:
+                            faiss.write_index(FAISS_INDEX, INDEX_FAISS)
+                            with open(INDEX_META,'w') as f:
+                                json.dump(META, f)
+                            print('Migrated NPZ to FAISS index')
+                        except Exception as e:
+                            print('Failed to write FAISS during migration:', e)
                         return
                     else:
                         # keep NPZ in memory
@@ -144,7 +154,8 @@ load_index()
 def redis_listener_loop():
     pubsub = r.pubsub(ignore_subscribe_messages=True)
     pubsub.subscribe('ml:events')
-    print('Redis listener subscribed to ml:events')
+    pubsub.subscribe('ml:insights')
+    print('Redis listener subscribed to ml:events and ml:insights')
     for message in pubsub.listen():
         try:
             data = message['data']
@@ -157,6 +168,30 @@ def redis_listener_loop():
 
 listener_thread = threading.Thread(target=redis_listener_loop, daemon=True)
 listener_thread.start()
+
+# JWT helpers
+
+def create_token(username: str):
+    exp = datetime.utcnow() + timedelta(hours=12)
+    payload = {'sub': username, 'exp': exp.timestamp()}
+    return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGO)
+
+def decode_token(token: str):
+    try:
+        data = jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGO])
+        return data
+    except Exception:
+        return None
+
+async def get_current_user(request: Request):
+    auth = request.headers.get('Authorization')
+    if not auth or not auth.startswith('Bearer '):
+        raise HTTPException(status_code=401, detail='Unauthorized')
+    token = auth.split(' ',1)[1]
+    data = decode_token(token)
+    if not data:
+        raise HTTPException(status_code=401, detail='Invalid token')
+    return data.get('sub')
 
 # API models
 class FileItem(BaseModel):
@@ -171,6 +206,10 @@ class SuggestRequest(BaseModel):
     query: str
     top_k: int = 5
 
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
 @app.websocket('/ws')
 async def websocket_endpoint(ws: WebSocket):
     await manager.connect(ws)
@@ -180,6 +219,13 @@ async def websocket_endpoint(ws: WebSocket):
     except WebSocketDisconnect:
         manager.disconnect(ws)
 
+@app.post('/auth/login')
+async def login(req: LoginRequest):
+    if req.username == ADMIN_USER and req.password == ADMIN_PASS:
+        token = create_token(req.username)
+        return {'ok':True, 'token': token}
+    raise HTTPException(status_code=401, detail='Invalid credentials')
+
 @app.post('/ml/embeddings/job')
 async def enqueue_embedding(job: EmbeddingJob):
     job_id = job.job_id or str(uuid.uuid4())
@@ -187,6 +233,9 @@ async def enqueue_embedding(job: EmbeddingJob):
     try:
         r.set(f'ml:job:{job_id}:items', json.dumps([{'path':it.path,'text':it.text} for it in job.items]))
         r.lpush('ml:jobs', job_id)
+        # log job
+        with open(JOBS_LOG,'a') as f:
+            f.write(json.dumps({'ts': time.time(), 'job_id':job_id, 'type':'enqueue', 'items': len(job.items)}) + '\n')
         r.publish('ml:events', json.dumps({'type':'job_enqueued','job_id':job_id}))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -235,6 +284,9 @@ async def compute_embeddings_direct(job: EmbeddingJob):
         else:
             save_npz(embs, [ {'path':it.path} for it in job.items ])
     r.publish('ml:events', json.dumps({'type':'job_complete','job_id': job.job_id or 'inline'}))
+    # log job complete
+    with open(JOBS_LOG,'a') as f:
+        f.write(json.dumps({'ts': time.time(), 'job_id': job.job_id or 'inline', 'type':'complete', 'added': len(job.items)}) + '\n')
     return {'ok':True, 'added': len(job.items)}
 
 @app.post('/ml/suggest')
@@ -250,11 +302,9 @@ async def suggest(req: SuggestRequest):
                 if idx < 0 or idx >= len(META): continue
                 results.append({'score': float(score), 'meta': META[idx]})
         # simple boosting by centroid similarity (learned pattern)
-        # compute global centroid if available
         centroid_boost = 1.0
         if len(META) > 0:
             try:
-                # load centroid if stored
                 centroid_path = os.path.join(DATA_DIR,'centroid.npy')
                 if os.path.exists(centroid_path):
                     centroid = np.load(centroid_path)
@@ -284,6 +334,51 @@ async def suggest(req: SuggestRequest):
         return {'ok':True, 'results': results}
     return {'ok':True, 'results': []}
 
+@app.post('/ml/event/click')
+async def log_click(payload: dict):
+    try:
+        entry = {'ts': time.time(), 'payload': payload}
+        with open(CLICK_LOG,'a') as f:
+            f.write(json.dumps(entry) + '\n')
+        # publish for retraining pipeline
+        r.publish('ml:events', json.dumps({'type':'click_logged','payload': payload}))
+        return {'ok':True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post('/track')
+async def track_event(request: Request):
+    """Receive telemetry from tracker snippet (beacon or fetch) and enqueue for learner.
+    Publishes an immediate insight for real-time dashboards.
+    """
+    try:
+        data = await request.json()
+    except Exception:
+        # fallback to raw body
+        try:
+            body = await request.body()
+            data = json.loads(body.decode('utf-8') or '{}')
+        except Exception:
+            data = {}
+    # sanitize and limit sizes
+    ev = {
+        'path': (data.get('path') or '')[:200],
+        'title': (data.get('title') or '')[:200],
+        'referrer': (data.get('referrer') or '')[:200],
+        'ts': data.get('ts') or time.time()
+    }
+    try:
+        # enqueue for learner
+        r.lpush('tracking:events', json.dumps(ev))
+        # persist
+        with open(TRACK_LOG,'a') as f:
+            f.write(json.dumps(ev) + '\n')
+        # publish immediate insight for realtime dashboards
+        r.publish('ml:insights', json.dumps({'type':'event_received','event':ev}))
+        return {'ok':True}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get('/ml/index/status')
 async def index_status():
     if HAS_FAISS and FAISS_INDEX is not None:
@@ -293,6 +388,35 @@ async def index_status():
         if 'embeddings' in data:
             return {'ok':True, 'count': int(data['embeddings'].shape[0])}
     return {'ok':True, 'count': 0}
+
+@app.get('/ml/admin/jobs')
+async def get_jobs(user: str = Depends(get_current_user)):
+    # return last 500 jobs from log
+    if not os.path.exists(JOBS_LOG):
+        return {'ok':True, 'jobs': []}
+    jobs = []
+    with open(JOBS_LOG,'r') as f:
+        for line in f:
+            try:
+                jobs.append(json.loads(line))
+            except:
+                continue
+    return {'ok':True, 'jobs': jobs[-500:]}
+
+@app.post('/ml/admin/rebuild-index')
+async def rebuild_index(background: BackgroundTasks, user: str = Depends(get_current_user)):
+    # Trigger background training script that builds a persistent FAISS index and swaps atomically
+    try:
+        def run_training():
+            script = os.path.join(os.getcwd(),'scripts','train_and_swap.py')
+            cmd = ['python3', script, '--data-dir', DATA_DIR]
+            subprocess.call(cmd)
+            # publish event
+            r.publish('ml:insights', json.dumps({'type':'rebuild_complete','ts':time.time()}))
+        background.add_task(run_training)
+        return {'ok':True, 'message':'rebuild started'}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get('/health')
 async def health():
