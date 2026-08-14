@@ -6,3 +6,5 @@ redis
 pydantic
 python-multipart
 faiss-cpu
+PyJWT
+prometheus_client

@@ -1,6 +1,7 @@
 """
-ML service with FAISS-backed index, WebSocket event broadcast, admin authentication, real-time /track endpoint,
-and Redis-backed rate limiting + tracker origin allowlist.
+ML service with Prometheus metrics instrumentation added.
+This file is the existing ml-service/app.py with prometheus_client instrumentation,
+rate limiter metrics, Redis error metric, queue depth gauge, and a /metrics endpoint.
 """
 from fastapi import FastAPI, BackgroundTasks, HTTPException, WebSocket, WebSocketDisconnect, Depends, Request
 from pydantic import BaseModel
@@ -17,6 +18,7 @@ import time
 import subprocess
 import jwt
 from datetime import datetime, timedelta
+from prometheus_client import Counter, Histogram, Gauge, generate_latest, CONTENT_TYPE_LATEST
 
 DATA_DIR = os.environ.get('ML_DATA_DIR', '/data')
 INDEX_FAISS = os.path.join(DATA_DIR, 'faiss_index.bin')
@@ -40,7 +42,7 @@ os.makedirs(DATA_DIR, exist_ok=True)
 
 r = redis.from_url(REDIS_URL, decode_responses=True)
 
-app = FastAPI(title='LUVORA ML Service (FAISS-enabled, Admin, Real-time)')
+app = FastAPI(title='LUVORA ML Service (FAISS-enabled, Admin, Real-time, Metrics)')
 
 MODEL_NAME = os.environ.get('SENTENCE_MODEL','all-MiniLM-L6-v2')
 model = SentenceTransformer(MODEL_NAME)
@@ -57,6 +59,15 @@ except Exception as e:
 FAISS_INDEX = None
 META = []
 INDEX_LOCK = threading.Lock()
+
+# Prometheus metrics
+REQUEST_COUNT = Counter('http_requests_total', 'HTTP requests total', ['method', 'endpoint', 'http_status'])
+REQUEST_LATENCY = Histogram('http_request_latency_seconds', 'HTTP request latency', ['endpoint'])
+RATE_LIMIT_BLOCKED = Counter('rate_limit_blocked_total', 'Number of requests blocked by rate limiter', ['endpoint'])
+REDIS_ERRORS = Counter('redis_errors_total', 'Redis errors encountered')
+ML_JOBS_QUEUE_DEPTH = Gauge('ml_jobs_queue_depth', 'Depth of ml:jobs Redis list')
+TRACKING_QUEUE_DEPTH = Gauge('tracking_events_queue_depth', 'Depth of tracking:events Redis list')
+FAISS_INDEX_SIZE = Gauge('faiss_index_size', 'Number of vectors in FAISS index')
 
 # WebSocket manager
 class ConnectionManager:
@@ -93,6 +104,7 @@ def load_index():
                         META = json.load(f)
                 else:
                     META = []
+                FAISS_INDEX_SIZE.set(getattr(FAISS_INDEX, 'ntotal', 0))
                 print('Loaded FAISS index with', FAISS_INDEX.ntotal, 'vectors')
                 return
             except Exception as e:
@@ -112,6 +124,7 @@ def load_index():
                         emb_norm = embeddings / np.maximum(norms, 1e-12)
                         idx.add(emb_norm.astype('float32'))
                         FAISS_INDEX = idx
+                        FAISS_INDEX_SIZE.set(idx.ntotal)
                         # write faiss index & meta
                         try:
                             faiss.write_index(FAISS_INDEX, INDEX_FAISS)
@@ -131,6 +144,7 @@ def load_index():
         # No index present
         FAISS_INDEX = None
         META = []
+        FAISS_INDEX_SIZE.set(0)
         print('No index found; starting empty')
 
 def save_faiss_index(index, meta):
@@ -139,6 +153,7 @@ def save_faiss_index(index, meta):
             faiss.write_index(index, INDEX_FAISS)
             with open(INDEX_META,'w') as f:
                 json.dump(meta, f)
+            FAISS_INDEX_SIZE.set(getattr(index, 'ntotal', 0))
             return True
         except Exception as e:
             print('Failed to save FAISS index:', e)
@@ -172,9 +187,26 @@ def redis_listener_loop():
             asyncio.get_event_loop().call_soon_threadsafe(asyncio.create_task, manager.broadcast(data))
         except Exception as e:
             print('Error handling redis message:', e)
+            REDIS_ERRORS.inc()
 
 listener_thread = threading.Thread(target=redis_listener_loop, daemon=True)
 listener_thread.start()
+
+# Background thread to update queue depth gauges periodically
+def queue_depth_updater():
+    while True:
+        try:
+            mlq = r.llen('ml:jobs')
+            trq = r.llen('tracking:events')
+            ML_JOBS_QUEUE_DEPTH.set(mlq)
+            TRACKING_QUEUE_DEPTH.set(trq)
+        except Exception as e:
+            print('Queue depth read error', e)
+            REDIS_ERRORS.inc()
+        time.sleep(5)
+
+qd_thread = threading.Thread(target=queue_depth_updater, daemon=True)
+qd_thread.start()
 
 # JWT helpers
 
@@ -229,10 +261,12 @@ def rate_limiter(endpoint_name: str):
             if cnt == 1:
                 r.expire(key, 65)
             if cnt > limit:
+                RATE_LIMIT_BLOCKED.labels(endpoint=endpoint_name).inc()
                 raise HTTPException(status_code=429, detail='Too Many Requests')
         except redis.exceptions.RedisError as e:
             # On Redis error, fail open but log
             print('Redis rate limiter error', e)
+            REDIS_ERRORS.inc()
         return None
     return Depends(_limiter)
 
@@ -274,6 +308,31 @@ class LoginRequest(BaseModel):
     username: str
     password: str
 
+# Metrics endpoint
+@app.get('/metrics')
+async def metrics():
+    resp = generate_latest()
+    return Response(content=resp, media_type=CONTENT_TYPE_LATEST)
+
+from fastapi.responses import Response
+
+# Simple request instrumentation wrapper
+@app.middleware('http')
+async def metrics_middleware(request: Request, call_next):
+    start = time.time()
+    endpoint = request.url.path
+    try:
+        response = await call_next(request)
+        status = response.status_code
+    except HTTPException as e:
+        status = e.status_code
+        raise
+    finally:
+        duration = time.time() - start
+        REQUEST_LATENCY.labels(endpoint=endpoint).observe(duration)
+        REQUEST_COUNT.labels(method=request.method, endpoint=endpoint, http_status=str(status)).inc()
+    return response
+
 @app.websocket('/ws')
 async def websocket_endpoint(ws: WebSocket):
     await manager.connect(ws)
@@ -302,6 +361,7 @@ async def enqueue_embedding(job: EmbeddingJob):
             f.write(json.dumps({'ts': time.time(), 'job_id':job_id, 'type':'enqueue', 'items': len(job.items)}) + '\n')
         r.publish('ml:events', json.dumps({'type':'job_enqueued','job_id':job_id}))
     except Exception as e:
+        REDIS_ERRORS.inc()
         raise HTTPException(status_code=500, detail=str(e))
     return {'ok':True, 'job_id':job_id}
 
@@ -408,6 +468,7 @@ async def log_click(payload: dict):
         r.publish('ml:events', json.dumps({'type':'click_logged','payload': payload}))
         return {'ok':True}
     except Exception as e:
+        REDIS_ERRORS.inc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.post('/track', dependencies=[rate_limiter('track')])
@@ -444,6 +505,7 @@ async def track_event(request: Request):
         r.publish('ml:insights', json.dumps({'type':'event_received','event':ev}))
         return {'ok':True}
     except Exception as e:
+        REDIS_ERRORS.inc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get('/ml/index/status')
@@ -483,6 +545,7 @@ async def rebuild_index(background: BackgroundTasks, user: str = Depends(get_cur
         background.add_task(run_training)
         return {'ok':True, 'message':'rebuild started'}
     except Exception as e:
+        REDIS_ERRORS.inc()
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get('/health')
