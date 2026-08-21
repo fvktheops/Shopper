@@ -1,0 +1,372 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<title>Neural Evolution AI</title>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+
+<style>
+
+body{
+background:#050505;
+color:white;
+font-family:Arial;
+padding:20px;
+}
+
+.card{
+background:#111;
+border:1px solid #333;
+padding:20px;
+border-radius:20px;
+margin-bottom:20px;
+}
+
+input,button{
+padding:12px;
+margin:5px;
+border-radius:10px;
+border:none;
+}
+
+button{
+background:#00ff99;
+cursor:pointer;
+}
+
+#log{
+height:250px;
+overflow:auto;
+background:#000;
+padding:10px;
+}
+
+</style>
+
+</head>
+
+
+<body>
+
+
+<h1>🧠 Neural Evolution AI</h1>
+
+
+<div class="card">
+
+<h3>Add Training Data</h3>
+
+<input id="x1" placeholder="Feature 1">
+
+<input id="x2" placeholder="Feature 2">
+
+<input id="y" placeholder="Expected Result">
+
+
+<button onclick="trainAI()">
+Train Neural Network
+</button>
+
+
+</div>
+
+
+
+<div class="card">
+
+<h3>Real Time Prediction</h3>
+
+
+<input id="p1" placeholder="Feature 1">
+
+<input id="p2" placeholder="Feature 2">
+
+
+<button onclick="predictAI()">
+Predict
+</button>
+
+
+<h2 id="answer"></h2>
+
+
+</div>
+
+
+
+<div class="card">
+
+<h3>AI Status</h3>
+
+<p id="status"></p>
+
+</div>
+
+
+<div class="card">
+
+<h3>Learning Memory</h3>
+
+<div id="log"></div>
+
+</div>
+
+
+<script>
+
+
+let model;
+
+
+let trainingData =
+JSON.parse(
+localStorage.getItem("trainingData")
+)||[];
+
+
+
+async function createBrain(){
+
+
+model=tf.sequential({
+
+layers:[
+
+tf.layers.dense({
+
+units:64,
+
+activation:"relu",
+
+inputShape:[2]
+
+}),
+
+
+tf.layers.dense({
+
+units:64,
+
+activation:"relu"
+
+}),
+
+
+tf.layers.dense({
+
+units:32,
+
+activation:"relu"
+
+}),
+
+
+tf.layers.dense({
+
+units:1
+
+})
+
+
+]
+
+});
+
+
+
+model.compile({
+
+optimizer:
+tf.train.adam(0.001),
+
+loss:
+"meanSquaredError"
+
+});
+
+
+}
+
+
+async function trainAI(){
+
+
+let a=
+Number(x1.value);
+
+
+let b=
+Number(x2.value);
+
+
+let result=
+Number(y.value);
+
+
+
+trainingData.push({
+
+input:[a,b],
+
+output:result
+
+});
+
+
+localStorage.setItem(
+"trainingData",
+JSON.stringify(trainingData)
+);
+
+
+let xs=tf.tensor2d(
+
+trainingData.map(
+d=>d.input
+)
+
+);
+
+
+let ys=tf.tensor2d(
+
+trainingData.map(
+d=>[d.output]
+)
+
+);
+
+
+await model.fit(xs,ys,{
+
+epochs:20,
+
+shuffle:true
+
+});
+
+
+xs.dispose();
+ys.dispose();
+
+
+log(
+
+"AI learned new pattern. Total memory: "
++
+trainingData.length
+
+);
+
+
+updateStatus();
+
+
+}
+
+
+
+async function predictAI(){
+
+
+let a=
+Number(p1.value);
+
+
+let b=
+Number(p2.value);
+
+
+
+let prediction=
+
+model.predict(
+
+tf.tensor2d([[a,b]])
+
+);
+
+
+let value=
+
+await prediction.data();
+
+
+answer.innerHTML=
+
+"Prediction: "
++
+value[0].toFixed(3);
+
+
+prediction.dispose();
+
+
+}
+
+
+
+function log(text){
+
+let box=
+document.getElementById("log");
+
+
+box.innerHTML+=
+"<br>"+text;
+
+
+box.scrollTop=
+box.scrollHeight;
+
+}
+
+
+function updateStatus(){
+
+
+status.innerHTML=
+
+` 
+Neural Network Active<br>
+Memory Samples: ${trainingData.length}<br>
+Learning Mode: Adaptive<br>
+Engine: TensorFlow.js
+`;
+
+
+}
+
+
+async function start(){
+
+await createBrain();
+
+
+updateStatus();
+
+
+log(
+"AI initialized..."
+);
+
+
+if(trainingData.length){
+
+trainAI();
+
+}
+
+
+}
+
+
+start();
+
+
+</script>
+
+
+</body>
+</html>
